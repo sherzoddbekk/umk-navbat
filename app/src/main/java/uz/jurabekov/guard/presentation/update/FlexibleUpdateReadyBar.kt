@@ -1,0 +1,68 @@
+package uz.jurabekov.guard.presentation.update
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+
+/**
+ * FLEXIBLE update yuklab olingandan keyin ko'rsatiladigan oddiy snackbar.
+ *
+ * FORCE_ALL_UPDATES=true bo'lsa - bu Composable hech qachon chiqmaydi
+ * (chunki barcha update'lar IMMEDIATE bo'ladi). Lekin kelajakda
+ * FLEXIBLE rejimga o'tsangiz - tayyor turadi.
+ */
+@Composable
+fun FlexibleUpdateReadyBar(
+    onRestartClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .systemBarsPadding(),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        Surface(
+            color = MaterialTheme.colorScheme.inverseSurface,
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Yangi versiya tayyor",
+                    color = MaterialTheme.colorScheme.inverseOnSurface,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 8.dp)
+                )
+                TextButton(onClick = onRestartClick) {
+                    Text(
+                        text = "Qayta ishga tushirish",
+                        color = MaterialTheme.colorScheme.inversePrimary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}

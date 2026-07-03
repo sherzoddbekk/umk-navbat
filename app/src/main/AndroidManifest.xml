@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!--
+    NOTIFICATION VA FOREGROUND SERVICE PERMISSION'LARI v1.1'da QAYTA QO'SHILADI
+    (Firebase Cloud Messaging asosida). v1.0 chiqarish uchun olib tashlandi:
+      - FOREGROUND_SERVICE_DATA_SYNC (Play Console deklaratsiya talab qiladi)
+      - FOREGROUND_SERVICE
+      - POST_NOTIFICATIONS
+      - VIBRATE
+    -->
+
+    <application
+        android:name=".GuardApplication"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@drawable/logo"
+        android:label="@string/app_name"
+        android:roundIcon="@drawable/logo"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Guard"
+        tools:targetApi="34">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.Guard">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+        QueueMonitorService olib tashlandi.
+        Real-time UI yangilanishi MainActivity foreground bo'lganda
+        QueuePusherClient orqali to'g'ridan-to'g'ri ViewModel'ga yetadi.
+        v1.1: FCM Service qo'shiladi - background notification uchun.
+        -->
+    </application>
+
+</manifest>

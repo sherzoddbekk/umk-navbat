@@ -1,0 +1,45 @@
+<resources>
+    <string name="app_name">UMK-Navbat</string>
+    <!--  Queue Screen  -->
+    <string name="queue_title">Navbat olish</string>
+    <string name="queue_login">Kirish</string>
+    <string name="queue_headline">Mashina ma\'lumotlarini kiriting</string>
+    <string name="queue_subtitle">Navbat raqamini olish uchun maydonlarni to\'ldiring</string>
+    <string name="queue_plate_label">Mashina raqami</string>
+    <string name="queue_plate_placeholder">01 W 571 QA</string>
+    <string name="queue_driver_label">Haydovchi F.I.Sh</string>
+    <string name="queue_driver_placeholder">Aliyev Vali Akmalovich</string>
+    <string name="queue_submit">Yuborish</string>
+    <!--  Toasts / Messages  -->
+    <string name="toast_in_progress">Jarayonda</string>
+    <string name="toast_no_internet">Internet aloqasi yo\'q</string>
+    <string name="toast_unauthorized">Avtorizatsiya talab qilinadi</string>
+    <!--  Validation  -->
+    <string name="error_plate_invalid">Mashina raqami noto\'g\'ri formatda. Misol: 01 W 571 QA</string>
+    <string name="error_driver_invalid">Haydovchi F.I.Sh kamida 3 ta belgi bo\'lishi kerak</string>
+    <!--  Success Dialog  -->
+    <string name="success_title">Navbat olindi</string>
+    <string name="success_ticket_label">Sizning navbat raqamingiz</string>
+    <string name="success_close">Yopish</string>
+    <!--  Main / Drawer  -->
+    <string name="drawer_subtitle">Boshqaruv paneli</string>
+    <string name="drawer_logout">Tizimdan chiqish</string>
+    <string name="drawer_no_access_title">Sizga hech qaysi bo\'limga ruxsat berilmagan</string>
+    <string name="drawer_no_access_message">Administrator bilan bog\'laning</string>
+    <!--  Sections  -->
+    <string name="section_queue">Navbat</string>
+    <string name="section_dashboard">Dashboard</string>
+    <string name="section_camera">Kameralar</string>
+    <string name="section_scale">Tarozi</string>
+    <!--  Scale  -->
+    <string name="scale_refresh">Yangilash</string>
+    <string name="scale_date_picker_confirm">Tanlash</string>
+    <string name="scale_date_picker_dismiss">Bekor</string>
+    <string name="scale_status_completed">Yakunlangan</string>
+    <string name="scale_status_inside">Ichkarida</string>
+    <string name="scale_weight_brutto">Brutto</string>
+    <string name="scale_weight_tara">Tara</string>
+    <string name="scale_weight_netto">Netto</string>
+    <!--  Placeholder  -->
+    <string name="placeholder_coming_soon">Bu bo\'lim tez orada ishga tushiriladi</string>
+</resources>
