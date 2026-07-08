@@ -36,6 +36,12 @@ interface QueueRepository {
     /** Bitta navbat uchun barcha permit'lar (joriy specga ko'ra 0..1 ta). */
     suspend fun fetchPermits(queueId: Long): ApiResult<List<Permit>>
 
+    /**
+     * Egasi navbatni bekor qiladi — `owner_token` + `plate` orqali.
+     * Muvaffaqiyatda backend `success=true` qaytaradi.
+     */
+    suspend fun cancelOwnerQueue(ownerToken: String, plate: String): ApiResult<Unit>
+
     /** Pusher connection holati. */
     val wsConnectionState: StateFlow<ConnectionState>
 

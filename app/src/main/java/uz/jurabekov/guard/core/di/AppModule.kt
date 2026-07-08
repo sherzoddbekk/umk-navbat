@@ -3,9 +3,11 @@ package uz.jurabekov.guard.core.di
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
+import uz.jurabekov.guard.data.preferences.AnnouncementPreferences
 import uz.jurabekov.guard.data.preferences.AuthPreferences
 import uz.jurabekov.guard.data.preferences.MyQueuesPreferences
 import uz.jurabekov.guard.data.preferences.OnboardingPreferences
+import uz.jurabekov.guard.data.preferences.OwnedQueuesPreferences
 import uz.jurabekov.guard.data.preferences.SavedDriverPreferences
 import uz.jurabekov.guard.data.repository.AuthRepositoryImpl
 import uz.jurabekov.guard.data.repository.QueueRepositoryImpl
@@ -13,6 +15,7 @@ import uz.jurabekov.guard.data.repository.ScaleRepositoryImpl
 import uz.jurabekov.guard.domain.repository.AuthRepository
 import uz.jurabekov.guard.domain.repository.QueueRepository
 import uz.jurabekov.guard.domain.repository.ScaleRepository
+import uz.jurabekov.guard.domain.usecase.CancelOwnerQueueUseCase
 import uz.jurabekov.guard.domain.usecase.GetPermitsUseCase
 import uz.jurabekov.guard.domain.usecase.GetQueueByDateUseCase
 import uz.jurabekov.guard.domain.usecase.GetQueueListUseCase
@@ -34,7 +37,7 @@ val appModule = module {
     // QueueManagementScreen) bir xil Pusher instance'idan event'larni
     // collect qiladi. SharedFlow tomonidan multi-collector qo'llab-quvvatlanadi.
     single<QueueRepository> {
-        QueueRepositoryImpl(api = get(), pusherClient = get())
+        QueueRepositoryImpl(api = get(), pusherClient = get(), json = get())
     }
 
     single<AuthRepository> {
@@ -48,6 +51,9 @@ val appModule = module {
     // ===== Preferences =====
     single { OnboardingPreferences(androidContext()) }
     single { MyQueuesPreferences(androidContext()) }
+    single { AnnouncementPreferences(androidContext()) }
+    // Olingan navbatlar (owner_token bilan) — bekor qilish oqimi uchun.
+    single { OwnedQueuesPreferences(context = androidContext(), json = get()) }
     // AuthPreferences endi Json'ni inject qiladi — session JSON serialize
     // qilish uchun. Json `networkModule`'da `single` sifatida ro'yxatda.
     single { AuthPreferences(context = androidContext(), json = get()) }
@@ -59,6 +65,7 @@ val appModule = module {
     factory { GetQueueListUseCase(repository = get()) }
     factory { ObserveQueueUpdatesUseCase(repository = get()) }
     factory { SubmitQueueUseCase(repository = get()) }
+    factory { CancelOwnerQueueUseCase(repository = get()) }
     factory { LoginUseCase(repository = get()) }
     factory { GetScaleListUseCase(repository = get()) }
     // Navbat boshqaruvi use case'lari

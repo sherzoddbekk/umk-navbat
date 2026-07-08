@@ -22,4 +22,11 @@ data class QueueItem(
     val status: QueueItemStatus = QueueItemStatus.WAITING,
     val createdAtEpochMs: Long,
     val arrivedAtHHmm: String,
+    /** Backend `date` (`yyyy-MM-dd`). Odatda faqat submit response'da to'ladi. */
+    val date: String? = null,
+    /**
+     * Egasi navbatni bekor qilish tokeni (64 belgi). FAQAT submit response'da
+     * keladi — WS/list item'larda `null`. Local'da saqlanadi (owner cancel uchun).
+     */
+    val ownerToken: String? = null,
 )

@@ -16,3 +16,8 @@ local.properties
 *.aab
 *.apk
 /app/release/
+
+# Release imzo maxfiy ma'lumotlari — hech qachon commit qilinmasin
+keystore.properties
+*.jks
+*.keystore

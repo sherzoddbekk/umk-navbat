@@ -5,9 +5,12 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.json.Json
 import retrofit2.HttpException
 import uz.jurabekov.guard.core.network.ApiResult
 import uz.jurabekov.guard.data.remote.api.QueueApi
+import uz.jurabekov.guard.data.remote.dto.ApiErrorDto
+import uz.jurabekov.guard.data.remote.dto.QueueCancelRequestDto
 import uz.jurabekov.guard.data.remote.dto.QueueListDataDto
 import uz.jurabekov.guard.data.remote.dto.QueueRequestDto
 import uz.jurabekov.guard.data.remote.websocket.QueuePusherClient
@@ -22,7 +25,8 @@ import java.io.IOException
 
 class QueueRepositoryImpl(
     private val api: QueueApi,
-    private val pusherClient: QueuePusherClient
+    private val pusherClient: QueuePusherClient,
+    private val json: Json
 ) : QueueRepository {
 
     override val wsConnectionState: StateFlow<ConnectionState>
@@ -46,6 +50,20 @@ class QueueRepositoryImpl(
 
     override suspend fun fetchPermits(queueId: Long): ApiResult<List<Permit>> = safeCall {
         api.getPermits(queueId).data.map { it.toDomain() }
+    }
+
+    override suspend fun cancelOwnerQueue(
+        ownerToken: String,
+        plate: String
+    ): ApiResult<Unit> = safeCall {
+        val response = api.cancelOwnerQueue(
+            QueueCancelRequestDto(ownerToken = ownerToken, plate = plate)
+        )
+        // Backend 200 qaytarib, ammo `success=false` bo'lishi mumkin
+        // (masalan, allaqachon bekor qilingan). Buni xatolik deb hisoblaymiz.
+        if (!response.success) {
+            throw IllegalStateException(response.message ?: "Navbatni bekor qilib bo'lmadi")
+        }
     }
 
     private fun QueueListDataDto.toDomain(): QueueData = QueueData(
@@ -100,11 +118,28 @@ class QueueRepositoryImpl(
     } catch (e: HttpException) {
         when (e.code()) {
             401 -> ApiResult.Unauthorized
-            else -> ApiResult.Error(code = e.code(), message = e.message())
+            // Backend `errorBody`'dagi `message`'ni ustun olamiz (422 validatsiya
+            // xatolari), bo'lmasa HTTP reason phrase'ga fallback.
+            else -> ApiResult.Error(
+                code = e.code(),
+                message = extractErrorMessage(e) ?: e.message()
+            )
         }
     } catch (e: IOException) {
         ApiResult.NetworkError
     } catch (e: Exception) {
         ApiResult.Error(message = e.localizedMessage ?: "Noma'lum xatolik")
     }
+
+    /**
+     * HTTP xatolik javobidan (`errorBody`) `message` maydonini ajratib oladi.
+     * Parse imkonsiz bo'lsa (bo'sh yoki noto'g'ri JSON) — `null` qaytadi.
+     *
+     * `errorBody` faqat bir marta o'qiladi; barcha xatolar defensive tarzda
+     * yutiladi (bu yerda crash bo'lmasligi kerak).
+     */
+    private fun extractErrorMessage(e: HttpException): String? = runCatching {
+        val raw = e.response()?.errorBody()?.string()?.takeIf { it.isNotBlank() } ?: return null
+        json.decodeFromString(ApiErrorDto.serializer(), raw).message?.takeIf { it.isNotBlank() }
+    }.getOrNull()
 }

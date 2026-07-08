@@ -29,10 +29,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -65,11 +68,14 @@ import uz.jurabekov.guard.presentation.queue.components.LoginIconButton
 import uz.jurabekov.guard.presentation.queue.components.NowEnteringBanner
 import uz.jurabekov.guard.presentation.queue.components.QueueEmptyState
 import uz.jurabekov.guard.presentation.queue.components.QueueListItem
+import uz.jurabekov.guard.presentation.queue.components.CancelQueueSheet
 import uz.jurabekov.guard.presentation.queue.components.QueueSubmitDialog
 import uz.jurabekov.guard.presentation.queue.components.QueueTypeTabs
 import uz.jurabekov.guard.presentation.queue.components.SuccessDialog
+import uz.jurabekov.guard.presentation.queue.components.WhatsNewDialog
 import uz.jurabekov.guard.presentation.auth.components.LoginDialog
 import uz.jurabekov.guard.ui.theme.Dimens
+import uz.jurabekov.guard.ui.theme.Error500
 import uz.jurabekov.guard.ui.theme.Success500
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -169,6 +175,31 @@ fun QueueScreen(
         AppInfoDialog(onDismiss = { showInfoDialog = false })
     }
 
+    if (state.showAnnouncement) {
+        WhatsNewDialog(
+            onDismiss = { viewModel.onEvent(QueueUiEvent.DismissAnnouncement) }
+        )
+    }
+
+    if (state.showCancelSheet) {
+        // Hozir "navbatdagi" (banner) navbatlar — sheet'da "Faol" belgisi uchun.
+        val activeUuids = remember(state.open.currentlyEntering, state.tent.currentlyEntering) {
+            setOfNotNull(
+                state.open.currentlyEntering?.uuid,
+                state.tent.currentlyEntering?.uuid
+            )
+        }
+        CancelQueueSheet(
+            queues = state.ownedQueues,
+            selectedUuid = state.selectedCancelUuid,
+            activeUuids = activeUuids,
+            isCancelling = state.isCancelling,
+            onSelect = { viewModel.onEvent(QueueUiEvent.CancelSelectionChanged(it)) },
+            onConfirm = { viewModel.onEvent(QueueUiEvent.ConfirmCancel) },
+            onDismiss = { viewModel.onEvent(QueueUiEvent.DismissCancelSheet) }
+        )
+    }
+
     if (state.showLoginDialog) {
         LoginDialog(
             onDismiss = { viewModel.onEvent(QueueUiEvent.DismissLoginDialog) },
@@ -241,7 +272,8 @@ fun QueueScreen(
             }
 
             BottomCta(
-                onClick = { viewModel.onEvent(QueueUiEvent.OpenDialog) },
+                onCancelClick = { viewModel.onEvent(QueueUiEvent.OpenCancelSheet) },
+                onSubmitClick = { viewModel.onEvent(QueueUiEvent.OpenDialog) },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
@@ -531,10 +563,13 @@ private fun UnifiedScrollList(
 
 @Composable
 private fun BottomCta(
-    onClick: () -> Unit,
+    onCancelClick: () -> Unit,
+    onSubmitClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceS),
+        verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.background)
@@ -543,10 +578,36 @@ private fun BottomCta(
                 vertical = Dimens.SpaceM
             )
     ) {
+        // "Navbatni bekor qilish" — outline, xavf rangi (Error).
+        OutlinedButton(
+            onClick = onCancelClick,
+            shape = MaterialTheme.shapes.medium,
+            border = androidx.compose.foundation.BorderStroke(1.dp, Error500),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = Error500),
+            contentPadding = PaddingValues(horizontal = Dimens.SpaceS),
+            modifier = Modifier
+                .weight(1f)
+                .height(Dimens.ButtonHeight)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Block,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.size(Dimens.SpaceXS))
+            Text(
+                text = "Navbatni bekor qilish",
+                style = MaterialTheme.typography.labelLarge,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+        }
+
+        // "+ Navbat olish" — asosiy CTA.
         PrimaryButton(
             text = "Navbat olish",
             leadingIcon = Icons.Default.Add,
-            onClick = onClick
+            onClick = onSubmitClick,
+            modifier = Modifier.weight(1.2f)
         )
     }
 }

@@ -1,7 +1,21 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+}
+
+// Release imzo (signing) ma'lumotlari `keystore.properties` faylidan o'qiladi.
+// Bu fayl git'ga TUSHMAYDI (.gitignore) — parollar maxfiy qoladi.
+// Fayl bo'lmasa (masalan CI yoki boshqa dev), release imzosiz qoladi va
+// `bundleRelease` xato beradi — bu kutilgan holat.
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        load(FileInputStream(keystorePropertiesFile))
+    }
 }
 
 android {
@@ -18,12 +32,24 @@ android {
         targetSdk = 36
         // ⬆️ MUHIM: Play'ga qayta yuklash uchun versionCode oshirilishi SHART.
         // versionName foydalanuvchiga ko'rinadi (Play sahifa, About).
-        versionCode = 6
-        versionName = "1.2.3"
+        // v1.3.0 — navbatni bekor qilish + "Yangilik!" e'loni.
+        versionCode = 7
+        versionName = "1.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "BASE_URL", "\"https://apigate.uzbeksteel.uz/\"")
+    }
+
+    signingConfigs {
+        create("release") {
+            if (keystorePropertiesFile.exists()) {
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+            }
+        }
     }
 
     buildTypes {
@@ -31,6 +57,11 @@ android {
             buildConfigField("String", "BASE_URL", "\"https://apigate.uzbeksteel.uz/\"")
         }
         release {
+            // Imzo faqat keystore.properties mavjud bo'lganda qo'llanadi.
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

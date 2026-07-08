@@ -6,6 +6,8 @@ import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 import uz.jurabekov.guard.data.remote.dto.PermitListResponseDto
+import uz.jurabekov.guard.data.remote.dto.QueueCancelRequestDto
+import uz.jurabekov.guard.data.remote.dto.QueueCancelResponseDto
 import uz.jurabekov.guard.data.remote.dto.QueueListResponseDto
 import uz.jurabekov.guard.data.remote.dto.QueueRequestDto
 import uz.jurabekov.guard.data.remote.dto.QueueSubmitResponseDto
@@ -28,6 +30,13 @@ interface QueueApi {
     /** Yangi navbat olish. */
     @POST("api/v2/queue")
     suspend fun submitQueue(@Body body: QueueRequestDto): QueueSubmitResponseDto
+
+    /**
+     * Egasi navbatni bekor qilish — `owner_token` + `plate` bilan.
+     * Auth talab qilinmaydi (token o'zi identifikatsiya qiladi).
+     */
+    @POST("api/v2/queue/owner/cancel")
+    suspend fun cancelOwnerQueue(@Body body: QueueCancelRequestDto): QueueCancelResponseDto
 
     /**
      * Bitta navbat uchun ruxsatnomalar — Navbat boshqaruvi ekranida item

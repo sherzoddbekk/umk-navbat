@@ -20,8 +20,14 @@ data class QueueItemDto(
     @SerialName("full_name") val fullName: String,
     @SerialName("has_permit") val hasPermit: Boolean = false,
     @SerialName("cancelled") val cancelled: Boolean = false,
+    @SerialName("cancel_reason") val cancelReason: String? = null,
+    @SerialName("passport_series") val passportSeries: String? = null,
+    @SerialName("passport_number") val passportNumber: String? = null,
     @SerialName("created_at") val createdAt: String? = null,
-    @SerialName("arrived_at") val arrivedAt: String? = null
+    @SerialName("arrived_at") val arrivedAt: String? = null,
+    // Faqat submit response'da keladi (POST /api/v2/queue). List response'da yo'q.
+    // Egasi navbatni bekor qilishda (POST .../owner/cancel) ishlatiladi.
+    @SerialName("owner_token") val ownerToken: String? = null
 ) {
     /**
      * Backend signal'larini status'ga aylantirish.
@@ -47,6 +53,8 @@ data class QueueItemDto(
         status = status,
         createdAtEpochMs = parseIsoToEpochMs(createdAt),
         arrivedAtHHmm = extractHHmm(arrivedAt),
+        date = date,
+        ownerToken = ownerToken,
     )
 
     private fun defaultStatus(): QueueItemStatus = when {

@@ -17,8 +17,11 @@ import kotlinx.coroutines.launch
 import uz.jurabekov.guard.core.network.ApiResult
 import uz.jurabekov.guard.core.util.Constants
 import uz.jurabekov.guard.core.util.InputValidator
+import uz.jurabekov.guard.data.preferences.AnnouncementPreferences
 import uz.jurabekov.guard.data.preferences.MyQueuesPreferences
+import uz.jurabekov.guard.data.preferences.OwnedQueuesPreferences
 import uz.jurabekov.guard.data.preferences.SavedDriverPreferences
+import uz.jurabekov.guard.data.preferences.dto.OwnedQueue
 import uz.jurabekov.guard.data.preferences.dto.SavedDriverData
 import uz.jurabekov.guard.domain.model.QueueData
 import uz.jurabekov.guard.domain.model.QueueItem
@@ -27,9 +30,13 @@ import uz.jurabekov.guard.domain.model.QueueSnapshot
 import uz.jurabekov.guard.domain.model.QueueUpdate
 import uz.jurabekov.guard.domain.model.VehicleType
 import uz.jurabekov.guard.domain.repository.QueueRepository
+import uz.jurabekov.guard.domain.usecase.CancelOwnerQueueUseCase
 import uz.jurabekov.guard.domain.usecase.GetQueueListUseCase
 import uz.jurabekov.guard.domain.usecase.ObserveQueueUpdatesUseCase
 import uz.jurabekov.guard.domain.usecase.SubmitQueueUseCase
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Queue ViewModel — ikki tab (OPEN / TENT) holatini parallel boshqaradi.
@@ -43,9 +50,12 @@ class QueueViewModel(
     private val getQueueList: GetQueueListUseCase,
     private val submitQueue: SubmitQueueUseCase,
     private val observeUpdates: ObserveQueueUpdatesUseCase,
+    private val cancelOwnerQueue: CancelOwnerQueueUseCase,
     private val repository: QueueRepository,
     private val myQueuesPreferences: MyQueuesPreferences,
-    private val savedDriverPreferences: SavedDriverPreferences
+    private val ownedQueuesPreferences: OwnedQueuesPreferences,
+    private val savedDriverPreferences: SavedDriverPreferences,
+    private val announcementPreferences: AnnouncementPreferences
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(QueueUiState(isLoading = true))
@@ -77,6 +87,19 @@ class QueueViewModel(
         listenForUpdates()
         observeConnectionState()
         startAutoSync()
+        maybeShowAnnouncement()
+    }
+
+    /**
+     * "Yangilik!" e'loni — FAQAT birinchi marta ko'rsatiladi. Flag DataStore'da
+     * saqlanadi ([AnnouncementPreferences]); ko'rsatilgach qayta chiqmaydi.
+     */
+    private fun maybeShowAnnouncement() {
+        viewModelScope.launch {
+            if (!announcementPreferences.isCancelFeatureShown()) {
+                _state.update { it.copy(showAnnouncement = true) }
+            }
+        }
     }
 
     override fun onCleared() {
@@ -185,8 +208,185 @@ class QueueViewModel(
             QueueUiEvent.DismissSuccess -> _state.update {
                 it.copy(successItem = null, showDialog = false)
             }
+
+            QueueUiEvent.DismissAnnouncement -> dismissAnnouncement()
+
+            QueueUiEvent.OpenCancelSheet -> openCancelSheet()
+            QueueUiEvent.DismissCancelSheet -> _state.update {
+                if (it.isCancelling) it else it.copy(showCancelSheet = false)
+            }
+            is QueueUiEvent.CancelSelectionChanged -> _state.update {
+                it.copy(selectedCancelUuid = event.uuid)
+            }
+            QueueUiEvent.ConfirmCancel -> confirmCancel()
         }
     }
+
+    /* ============================================================
+     * "Yangilik!" e'loni
+     * ============================================================ */
+    private fun dismissAnnouncement() {
+        // Idempotent — allaqachon yopiq bo'lsa qayta yozmaymiz.
+        if (!_state.value.showAnnouncement) return
+        _state.update { it.copy(showAnnouncement = false) }
+        viewModelScope.launch { announcementPreferences.markCancelFeatureShown() }
+    }
+
+    /* ============================================================
+     * Navbatni bekor qilish (owner cancel)
+     * ============================================================ */
+
+    /**
+     * Sheet ochiladi va local'da saqlangan BUGUNGI navbatlar yuklanadi.
+     *
+     * === RECONCILE-ON-OPEN (admin bekor qilishini hisobga olish) ===
+     * Local'da saqlangan navbat "eskirgan" bo'lishi mumkin: admin foydalanuvchi
+     * kirishini bekor qilgan yoki mashina allaqachon kirib bo'lgan bo'lishi
+     * mumkin. Bunda WS event'i yo'qolgan bo'lishi mumkin (app background'da
+     * edi — at-most-once delivery), shuning uchun WS'ga tayanmaymiz.
+     *
+     * Yechim: sheet ochilishidan oldin REST'dan yangi snapshot olamiz va faqat
+     * hali ham BEKOR QILSA BO'LADIGAN (server'da `WAITING` — navbatda turgan)
+     * navbatlarni ko'rsatamiz. Server'da endi mavjud bo'lmagan yoki bekor
+     * qilingan/kirib bo'lgan yozuvlar ko'rsatilmaydi va local'dan tozalanadi.
+     *
+     *  - Eski kunlar (kun rollover) — `date` bo'yicha filtr.
+     *  - Bo'sh bo'lsa — sheet ochilmaydi, toast ko'rsatiladi.
+     */
+    private fun openCancelSheet() {
+        viewModelScope.launch {
+            // 1) REST — authoritative. Muvaffaqiyatsiz bo'lsa (offline) oxirgi
+            //    ma'lum state'ga tayanamiz (stale, ammo tozalash o'tkazilmaydi).
+            val refreshed = when (val result = getQueueList()) {
+                is ApiResult.Success -> {
+                    _state.update { it.applySnapshot(result.data) }
+                    true
+                }
+                else -> false
+            }
+
+            val today = _state.value.queueDate ?: todayIso()
+            val cancellable = _state.value.cancellableUuids()
+
+            val stored = ownedQueuesPreferences.snapshot().filter { it.date == today }
+            val owned = stored
+                .filter { it.uuid in cancellable }
+                .sortedBy { it.queueNumber }
+
+            // 2) Faqat ISHONCHLI (muvaffaqiyatli) snapshot bo'lganda stale
+            //    yozuvlarni local'dan tozalaymiz — offline'da noto'g'ri
+            //    o'chirib qo'ymaslik uchun.
+            if (refreshed) {
+                stored.filterNot { it.uuid in cancellable }
+                    .forEach { ownedQueuesPreferences.remove(it.uuid) }
+            }
+
+            if (owned.isEmpty()) {
+                emitToast(
+                    if (!refreshed && stored.isNotEmpty()) MSG_NO_INTERNET
+                    else MSG_NO_OWNED_QUEUES
+                )
+                return@launch
+            }
+
+            _state.update {
+                it.copy(
+                    showCancelSheet = true,
+                    ownedQueues = owned,
+                    // Default tanlov — birinchi (odatda faol) navbat.
+                    selectedCancelUuid = owned.first().uuid
+                )
+            }
+        }
+    }
+
+    /**
+     * Hozir BEKOR QILSA BO'LADIGAN navbatlar uuid'lari — ikkala tab bo'yicha
+     * server'da `WAITING` (navbatda turgan) holatdagilar: banner (currentlyEntering)
+     * + waiting ro'yxati. `ENTERED`/`SKIPPED` (kirib bo'lgan yoki admin bekor
+     * qilgan) va ro'yxatda umuman yo'q navbatlar bu to'plamга kirmaydi.
+     */
+    private fun QueueUiState.cancellableUuids(): Set<String> {
+        val result = HashSet<String>()
+        for (tab in listOf(open, tent)) {
+            tab.currentlyEntering
+                ?.takeIf { it.status == QueueItemStatus.WAITING }
+                ?.let { result += it.uuid }
+            tab.waitingItems.forEach {
+                if (it.status == QueueItemStatus.WAITING) result += it.uuid
+            }
+        }
+        return result
+    }
+
+    private fun confirmCancel() {
+        val s = _state.value
+        if (s.isCancelling) return
+
+        val selected = s.ownedQueues.firstOrNull { it.uuid == s.selectedCancelUuid }
+        if (selected == null) {
+            emitToast(MSG_SELECT_QUEUE)
+            return
+        }
+
+        viewModelScope.launch {
+            _state.update { it.copy(isCancelling = true) }
+
+            when (val result = cancelOwnerQueue(selected.ownerToken, selected.plate)) {
+                is ApiResult.Success -> {
+                    // Local'dan o'chiramiz — qayta ko'rsatilmasin.
+                    ownedQueuesPreferences.remove(selected.uuid)
+
+                    val remaining = s.ownedQueues.filterNot { it.uuid == selected.uuid }
+                    _state.update {
+                        it.copy(
+                            isCancelling = false,
+                            ownedQueues = remaining,
+                            selectedCancelUuid = remaining.firstOrNull()?.uuid,
+                            // Ro'yxat bo'shab qolsa sheet'ni yopamiz.
+                            showCancelSheet = remaining.isNotEmpty()
+                        )
+                    }
+                    emitToast(MSG_CANCEL_SUCCESS)
+                    // Backend holati o'zgardi — ro'yxatni yangilaymiz.
+                    silentRefresh()
+                }
+                is ApiResult.Error -> {
+                    _state.update { it.copy(isCancelling = false) }
+                    emitToast(result.message)
+                }
+                ApiResult.NetworkError -> {
+                    _state.update { it.copy(isCancelling = false) }
+                    emitToast(MSG_NO_INTERNET)
+                }
+                ApiResult.Unauthorized -> {
+                    _state.update { it.copy(isCancelling = false) }
+                    emitToast(MSG_UNAUTHORIZED)
+                }
+            }
+        }
+    }
+
+    private fun todayIso(): String =
+        SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+
+    /**
+     * Backend (inglizcha) xatolik xabarlarini foydalanuvchiga ko'rsatiladigan
+     * o'zbekcha matnga o'giradi. Ma'lum bo'lmagan xabarlar o'zgarishsiz qaytadi
+     * (raw backend matni — hech bo'lmasa biror ma'lumot).
+     */
+    private fun localizeSubmitError(raw: String): String {
+        val n = raw.trim().lowercase()
+        return when {
+            // "The plate field must be 8 characters."
+            n.contains("plate") && n.contains("8 character") -> MSG_PLATE_LENGTH_8
+            else -> raw
+        }
+    }
+
+    /** Xabar mashina raqamiga taalluqlimi (inline plateError uchun). */
+    private fun isPlateError(raw: String): Boolean =
+        raw.contains("plate", true) || raw.contains("raqam", true)
 
     /* ============================================================
      * WS Connection observer — RECONCILE-ON-RECONNECT pattern
@@ -513,6 +713,9 @@ class QueueViewModel(
                     // ekanligini aniqlash uchun ishlatiladi.
                     myQueuesPreferences.add(newItem.uuid)
 
+                    // Owner cancel uchun to'liq navbatni (token bilan) saqlaymiz.
+                    persistOwnedQueue(newItem, s)
+
                     // "Eslab qolish" — submit muvaffaqiyatli bo'lgandan keyin
                     // ATOMIC saqlaymiz. Submit fail bo'lsa hech narsa
                     // saqlanmaydi — bu to'g'ri, chunki noto'g'ri ma'lumotni
@@ -536,21 +739,25 @@ class QueueViewModel(
                         )
                     }
                 }
-                is ApiResult.Error -> _state.update {
-                    val msg = result.message
-                    emitToast(msg)
-                    it.copy(
-                        isSubmitting = false,
-                        plateError = if (msg.contains("raqami", true)) msg else null,
-                        nameError = if (msg.contains("F.I", true)) msg else null,
-                        passportError = if (msg.contains("pasport", true)) msg else null
-                    ).also {
-                        val handled = msg.contains("raqami", true) ||
-                                msg.contains("F.I", true) ||
-                                msg.contains("pasport", true)
-                        if (!handled) emitToast(msg)
-                    }
+                is ApiResult.Error -> {
+                    // Backend xabarini o'zbekchaga o'giramiz (masalan 422 validatsiya).
+                    val raw = result.message
+                    val msg = localizeSubmitError(raw)
 
+                    // Xabar qaysi maydonga taalluqli — inline error uchun.
+                    val plateErr = if (isPlateError(raw)) msg else null
+                    val nameErr = if (raw.contains("F.I", true)) msg else null
+                    val passErr = if (raw.contains("pasport", true)) msg else null
+
+                    _state.update {
+                        it.copy(
+                            isSubmitting = false,
+                            plateError = plateErr,
+                            nameError = nameErr,
+                            passportError = passErr
+                        )
+                    }
+                    emitToast(msg)
                 }
                 ApiResult.NetworkError -> {
                     _state.update { it.copy(isSubmitting = false) }
@@ -566,6 +773,39 @@ class QueueViewModel(
 
     private fun emitToast(message: String) {
         viewModelScope.launch { _effect.send(QueueUiEffect.ShowToast(message)) }
+    }
+
+    /**
+     * Submit success'dan keyin olingan navbatni (`owner_token` bilan) local'ga
+     * saqlash — keyinchalik egasi bekor qilishi uchun.
+     *
+     * `owner_token` faqat submit response'da keladi. Agar yo'q bo'lsa (eski
+     * backend), bekor qilib bo'lmaydi — saqlashning ma'nosi yo'q, o'tkazamiz.
+     *
+     * Passport ma'lumotlari form state'dan olinadi (response'da null keladi).
+     * Fire-and-forget: DataStore atomic write.
+     */
+    private fun persistOwnedQueue(item: QueueItem, form: QueueUiState) {
+        val token = item.ownerToken?.takeIf { it.isNotBlank() } ?: return
+        viewModelScope.launch {
+            ownedQueuesPreferences.add(
+                OwnedQueue(
+                    id = item.id,
+                    uuid = item.uuid,
+                    date = item.date ?: todayIso(),
+                    type = item.type.toBackend() ?: "open",
+                    queueNumber = item.queueNumber,
+                    plate = item.plate,
+                    fullName = item.fullName,
+                    passportSeries = form.passportSeries.ifBlank { null },
+                    passportNumber = form.passportNumber.ifBlank { null },
+                    hasPermit = item.hasPermit,
+                    cancelled = false,
+                    cancelReason = null,
+                    ownerToken = token
+                )
+            )
+        }
     }
 
     /* ============================================================
@@ -709,6 +949,10 @@ class QueueViewModel(
         const val MSG_IN_PROGRESS = "Jarayonda"
         const val MSG_NO_INTERNET = "Internet aloqasi yo'q"
         const val MSG_UNAUTHORIZED = "Avtorizatsiya talab qilinadi"
+        const val MSG_PLATE_LENGTH_8 = "Mashina raqamingiz 8ta belgidan iborat bo'lishi shart"
+        const val MSG_NO_OWNED_QUEUES = "Bekor qilinadigan navbat yo'q"
+        const val MSG_SELECT_QUEUE = "Bekor qilish uchun navbatni tanlang"
+        const val MSG_CANCEL_SUCCESS = "Navbat bekor qilindi"
         const val MSG_PLATE_INVALID_CHARS = "Faqat lotin harf va raqam kiriting"
         const val MSG_NAME_INVALID_CHARS = "Faqat harflar bilan yozing"
         const val MSG_PASSPORT_SERIES_INVALID = "Seriyada faqat 2 ta lotin harfi"

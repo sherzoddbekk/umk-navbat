@@ -31,4 +31,19 @@ sealed interface QueueUiEvent {
     data object Submit : QueueUiEvent
 
     data object DismissSuccess : QueueUiEvent
+
+    // ===== "Yangilik!" e'loni =====
+    /** E'lon yopildi ("Tushunarli" yoki 5s avtomatik) — qayta chiqmaydi. */
+    data object DismissAnnouncement : QueueUiEvent
+
+    // ===== Navbatni bekor qilish =====
+    /** "Navbatni bekor qilish" tugmasi — saqlangan navbatlar sheet'ini ochadi. */
+    data object OpenCancelSheet : QueueUiEvent
+    data object DismissCancelSheet : QueueUiEvent
+
+    /** Sheet'da radio orqali navbat tanlash. */
+    data class CancelSelectionChanged(val uuid: String) : QueueUiEvent
+
+    /** Tanlangan navbatni bekor qilish (API so'rovi). */
+    data object ConfirmCancel : QueueUiEvent
 }

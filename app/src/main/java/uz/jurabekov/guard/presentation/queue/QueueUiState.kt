@@ -1,5 +1,6 @@
 package uz.jurabekov.guard.presentation.queue
 
+import uz.jurabekov.guard.data.preferences.dto.OwnedQueue
 import uz.jurabekov.guard.domain.model.QueueItem
 import uz.jurabekov.guard.domain.model.QueueItemStatus
 import uz.jurabekov.guard.domain.model.VehicleType
@@ -63,6 +64,18 @@ data class QueueUiState(
     val rememberMe: Boolean = false,
 
     val successItem: QueueItem? = null,
+
+    // ===== "Yangilik!" e'loni (bir martalik) =====
+    val showAnnouncement: Boolean = false,
+
+    // ===== Navbatni bekor qilish sheet'i =====
+    val showCancelSheet: Boolean = false,
+    /** Local'da saqlangan (bugungi) olingan navbatlar — sheet ro'yxati. */
+    val ownedQueues: List<OwnedQueue> = emptyList(),
+    /** Sheet'da tanlangan navbat `uuid`. */
+    val selectedCancelUuid: String? = null,
+    /** Bekor qilish API so'rovi jarayonda. */
+    val isCancelling: Boolean = false,
 
     // ===== Login dialog =====
     /**
