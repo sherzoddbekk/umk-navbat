@@ -33,8 +33,8 @@ android {
         // ⬆️ MUHIM: Play'ga qayta yuklash uchun versionCode oshirilishi SHART.
         // versionName foydalanuvchiga ko'rinadi (Play sahifa, About).
         // v1.3.0 — navbatni bekor qilish + "Yangilik!" e'loni.
-        versionCode = 7
-        versionName = "1.3.0"
+        versionCode = 8
+        versionName = "1.3.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -154,6 +154,8 @@ dependencies {
     coreLibraryDesugaring(libs.desugar.jdk.libs)
     // Test
     testImplementation(libs.junit)
+    // ViewModel testlari uchun — `Dispatchers.setMain` + `runTest`.
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

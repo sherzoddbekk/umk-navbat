@@ -21,3 +21,6 @@ local.properties
 keystore.properties
 *.jks
 *.keystore
+
+# Android Studio sozlamalari — loyihaga taalluqli emas
+/.idea/
