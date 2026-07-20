@@ -29,4 +29,11 @@ data class QueueItem(
      * keladi — WS/list item'larda `null`. Local'da saqlanadi (owner cancel uchun).
      */
     val ownerToken: String? = null,
+    /**
+     * Mashina chaqirilgan yo'l raqami (1..3) yoki `null` — hali chaqirilmagan.
+     * Faqat "Navbat boshqaruvi" ekranida ishlatiladi (info-tablo chaqiruvi).
+     */
+    val infoLane: Int? = null,
+    /** Mashina qo'lda o'tkazilgan — tablodan olib tashlangan, yo'l bo'sh. */
+    val manualPassed: Boolean = false,
 )

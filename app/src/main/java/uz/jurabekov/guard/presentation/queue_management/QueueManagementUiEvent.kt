@@ -22,4 +22,11 @@ sealed interface QueueManagementUiEvent {
     data object RetryPermit : QueueManagementUiEvent
 
     data object DismissPermitDialog : QueueManagementUiEvent
+
+    // ===== Info-tablo =====
+    /** "N YO'L" tugmasi — mashinani tabloda shu yo'lga chaqirish. */
+    data class LaneCallClicked(val item: QueueItem, val lane: Int) : QueueManagementUiEvent
+
+    /** "O'TKAZILDI" tugmasi — mashina qo'lda o'tkazildi, yo'l bo'shaydi. */
+    data class ManualPassClicked(val item: QueueItem) : QueueManagementUiEvent
 }

@@ -33,7 +33,16 @@ data class QueueManagementUiState(
     val listError: String? = null,
 
     val showDatePicker: Boolean = false,
-    val permitDialog: PermitDialogState? = null
+    val permitDialog: PermitDialogState? = null,
+
+    // ===== Info-tablo (yo'lga chaqirish) =====
+    /**
+     * Joriy foydalanuvchi yo'l chaqiruvi tugmalarini ko'ra oladimi
+     * (`admin` yoki `darvoza_tekshiruv`). `AuthRepository.currentUser`'dan.
+     */
+    val canManageInfoLane: Boolean = false,
+    /** Hozir so'rov ketayotgan navbat `id`'si — tugmalar disable bo'ladi. */
+    val laneActionInProgressId: Long? = null
 ) {
     val totalPermittedCount: Int
         get() = open.enteredOnlyCount + tent.enteredOnlyCount

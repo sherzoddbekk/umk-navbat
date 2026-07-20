@@ -27,6 +27,25 @@ object Permissions {
 }
 
 /**
+ * Backend rol kodlari (`user.role_code`).
+ *
+ * Permission'lardan farqli o'laroq, ba'zi amallar rol darajasida cheklangan
+ * (backend hozircha ular uchun alohida permission bermaydi) — masalan
+ * info-tablo chaqiruvi.
+ */
+object Roles {
+    const val ADMIN = "admin"
+    const val GATE_INSPECTOR = "darvoza_tekshiruv"
+}
+
+/**
+ * Info-tablo yo'l chaqiruvi va "o'tkazildi" amallarini bajara oladimi.
+ * Faqat `admin` va `darvoza_tekshiruv` rollari.
+ */
+val User?.canManageInfoLane: Boolean
+    get() = this != null && (roleCode == Roles.ADMIN || roleCode == Roles.GATE_INSPECTOR)
+
+/**
  * Permission tekshirish — `User.permissions` `List<String>` uchun.
  *
  * Inline + reified yoki extension — ikkalasi ham ishlaydi; bu yerda

@@ -27,15 +27,16 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.koin.androidx.compose.koinViewModel
+import uz.jurabekov.guard.domain.model.QueueItem
 import uz.jurabekov.guard.presentation.queue.TabState
 import uz.jurabekov.guard.presentation.queue.components.EmptyState
 import uz.jurabekov.guard.presentation.queue.components.ErrorState
 import uz.jurabekov.guard.presentation.queue.components.LoadingState
 import uz.jurabekov.guard.presentation.queue.components.NowEnteringBanner
 import uz.jurabekov.guard.presentation.queue.components.QueueEmptyState
-import uz.jurabekov.guard.presentation.queue.components.QueueListItem
 import uz.jurabekov.guard.presentation.queue.components.QueueTypeTabs
 import uz.jurabekov.guard.presentation.queue_management.components.PermitDialog
+import uz.jurabekov.guard.presentation.queue_management.components.QueueManagementItem
 import uz.jurabekov.guard.presentation.queue_management.components.QueueDateBar
 import uz.jurabekov.guard.presentation.scale.components.ScaleDatePickerDialog
 import uz.jurabekov.guard.ui.theme.Dimens
@@ -154,9 +155,9 @@ fun QueueManagementScreen(
                     else -> UnifiedClickableList(
                         tab = tab,
                         listState = listState,
-                        onItemClick = { item ->
-                            viewModel.onEvent(QueueManagementUiEvent.ItemClicked(item))
-                        }
+                        canManageInfoLane = state.canManageInfoLane,
+                        laneActionInProgressId = state.laneActionInProgressId,
+                        onEvent = viewModel::onEvent
                     )
                 }
             }
@@ -173,13 +174,17 @@ fun QueueManagementScreen(
  *  2. currentlyEntering banner — highlight
  *  3. waitingItems (sortlangan queueNumber asc) — keyingi mashinalar
  *
- * Banner ham clickable (NowEnteringBanner'ni clickable Box ichiga o'rab).
+ * Item'lar `QueueManagementItem` orqali chiziladi — ruxsatnoma berilgan
+ * mashinalarda info-tablo tugmalari (1/2/3 YO'L, O'TKAZILDI) ham chiqadi.
+ * Banner (`currentlyEntering`) hali WAITING — unda tugmalar bo'lmaydi.
  */
 @Composable
 private fun UnifiedClickableList(
     tab: TabState,
     listState: LazyListState,
-    onItemClick: (uz.jurabekov.guard.domain.model.QueueItem) -> Unit
+    canManageInfoLane: Boolean,
+    laneActionInProgressId: Long?,
+    onEvent: (QueueManagementUiEvent) -> Unit
 ) {
     LazyColumn(
         state = listState,
@@ -199,10 +204,7 @@ private fun UnifiedClickableList(
             items = tab.enteredItems,
             key = { "history-${it.uuid}" }
         ) { item ->
-            QueueListItem(
-                item = item,
-                onClick = { onItemClick(item) }
-            )
+            ManagementItem(item, canManageInfoLane, laneActionInProgressId, onEvent)
         }
 
         // === Banner: currently entering ===
@@ -211,7 +213,7 @@ private fun UnifiedClickableList(
                 Spacer(Modifier.height(2.dp))
                 BannerClickable(
                     item = item,
-                    onClick = { onItemClick(item) }
+                    onClick = { onEvent(QueueManagementUiEvent.ItemClicked(item)) }
                 )
                 Spacer(Modifier.height(2.dp))
             }
@@ -222,12 +224,27 @@ private fun UnifiedClickableList(
             items = tab.waitingItems,
             key = { "waiting-${it.uuid}" }
         ) { item ->
-            QueueListItem(
-                item = item,
-                onClick = { onItemClick(item) }
-            )
+            ManagementItem(item, canManageInfoLane, laneActionInProgressId, onEvent)
         }
     }
+}
+
+/** `QueueManagementItem` uchun event binding — ikkala ro'yxatda ham bir xil. */
+@Composable
+private fun ManagementItem(
+    item: QueueItem,
+    canManageInfoLane: Boolean,
+    laneActionInProgressId: Long?,
+    onEvent: (QueueManagementUiEvent) -> Unit
+) {
+    QueueManagementItem(
+        item = item,
+        canManageInfoLane = canManageInfoLane,
+        isActionInProgress = laneActionInProgressId == item.id,
+        onClick = { onEvent(QueueManagementUiEvent.ItemClicked(item)) },
+        onLaneCall = { lane -> onEvent(QueueManagementUiEvent.LaneCallClicked(item, lane)) },
+        onManualPass = { onEvent(QueueManagementUiEvent.ManualPassClicked(item)) }
+    )
 }
 
 /**
@@ -239,7 +256,7 @@ private fun UnifiedClickableList(
  */
 @Composable
 private fun BannerClickable(
-    item: uz.jurabekov.guard.domain.model.QueueItem,
+    item: QueueItem,
     onClick: () -> Unit
 ) {
     NowEnteringBanner(

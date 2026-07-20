@@ -5,6 +5,8 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
+import uz.jurabekov.guard.data.remote.dto.InfoLaneActionResponseDto
+import uz.jurabekov.guard.data.remote.dto.InfoLaneCallRequestDto
 import uz.jurabekov.guard.data.remote.dto.PermitListResponseDto
 import uz.jurabekov.guard.data.remote.dto.QueueCancelRequestDto
 import uz.jurabekov.guard.data.remote.dto.QueueCancelResponseDto
@@ -49,4 +51,23 @@ interface QueueApi {
     suspend fun getPermits(
         @Path("id") queueId: Long
     ): PermitListResponseDto
+
+    /**
+     * Mashinani info-tabloda 1/2/3-yo'lga chaqirish.
+     * Faqat ruxsatnoma berilgan (`has_permit=true`) navbat uchun ma'noli.
+     */
+    @POST("api/v2/queue/{id}/info-lane/call")
+    suspend fun callInfoLane(
+        @Path("id") queueId: Long,
+        @Body body: InfoLaneCallRequestDto
+    ): InfoLaneActionResponseDto
+
+    /**
+     * Mashina qo'lda o'tkazildi — tablodan olib tashlanadi, yo'l bo'shaydi.
+     * Body talab qilinmaydi (bo'sh POST).
+     */
+    @POST("api/v2/queue/{id}/entry/manual")
+    suspend fun markManualEntry(
+        @Path("id") queueId: Long
+    ): InfoLaneActionResponseDto
 }

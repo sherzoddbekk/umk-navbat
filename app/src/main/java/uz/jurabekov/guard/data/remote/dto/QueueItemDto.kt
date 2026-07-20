@@ -27,7 +27,11 @@ data class QueueItemDto(
     @SerialName("arrived_at") val arrivedAt: String? = null,
     // Faqat submit response'da keladi (POST /api/v2/queue). List response'da yo'q.
     // Egasi navbatni bekor qilishda (POST .../owner/cancel) ishlatiladi.
-    @SerialName("owner_token") val ownerToken: String? = null
+    @SerialName("owner_token") val ownerToken: String? = null,
+    // Info-tablo chaqiruvi (Navbat boshqaruvi ekrani). Eski backend'da yo'q —
+    // default qiymatlar bilan forward/backward compatible.
+    @SerialName("info_lane") val infoLane: Int? = null,
+    @SerialName("manual_passed") val manualPassed: Boolean = false
 ) {
     /**
      * Backend signal'larini status'ga aylantirish.
@@ -55,6 +59,8 @@ data class QueueItemDto(
         arrivedAtHHmm = extractHHmm(arrivedAt),
         date = date,
         ownerToken = ownerToken,
+        infoLane = infoLane,
+        manualPassed = manualPassed,
     )
 
     private fun defaultStatus(): QueueItemStatus = when {

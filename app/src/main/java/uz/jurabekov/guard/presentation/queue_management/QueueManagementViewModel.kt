@@ -21,9 +21,13 @@ import uz.jurabekov.guard.domain.model.QueueItemStatus
 import uz.jurabekov.guard.domain.model.QueueSnapshot
 import uz.jurabekov.guard.domain.model.QueueUpdate
 import uz.jurabekov.guard.domain.model.VehicleType
+import uz.jurabekov.guard.domain.model.canManageInfoLane
+import uz.jurabekov.guard.domain.repository.AuthRepository
 import uz.jurabekov.guard.domain.repository.QueueRepository
+import uz.jurabekov.guard.domain.usecase.CallInfoLaneUseCase
 import uz.jurabekov.guard.domain.usecase.GetPermitsUseCase
 import uz.jurabekov.guard.domain.usecase.GetQueueByDateUseCase
+import uz.jurabekov.guard.domain.usecase.MarkManualEntryUseCase
 import uz.jurabekov.guard.presentation.queue.TabState
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -56,7 +60,10 @@ import java.util.Locale
 class QueueManagementViewModel(
     private val getQueueByDate: GetQueueByDateUseCase,
     private val getPermits: GetPermitsUseCase,
-    private val repository: QueueRepository
+    private val callInfoLane: CallInfoLaneUseCase,
+    private val markManualEntry: MarkManualEntryUseCase,
+    private val repository: QueueRepository,
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(
@@ -71,6 +78,13 @@ class QueueManagementViewModel(
     private var permitJob: Job? = null
 
     /**
+     * Info-tablo action'lari (chaqiruv / o'tkazildi) uchun single-flight guard.
+     * Ikkita tugma tez ketma-ket bosilsa — ikkinchisi e'tiborsiz qoldiriladi
+     * (server holati bilan race bo'lmaydi).
+     */
+    private var laneJob: Job? = null
+
+    /**
      * `LifecycleResumeEffect` initial composition'da ham chaqiriladi — burst
      * REST oldini olish uchun throttle. `QueueViewModel` bilan bir xil pattern.
      */
@@ -82,6 +96,7 @@ class QueueManagementViewModel(
         loadQueue(initial = true)
         listenForWsUpdates()
         observeWsReconnect()
+        observeUserRole()
     }
 
     fun onEvent(event: QueueManagementUiEvent) {
@@ -110,6 +125,69 @@ class QueueManagementViewModel(
             is QueueManagementUiEvent.ItemClicked -> openPermitDialog(event.item)
             QueueManagementUiEvent.RetryPermit -> retryPermit()
             QueueManagementUiEvent.DismissPermitDialog -> dismissPermit()
+
+            is QueueManagementUiEvent.LaneCallClicked -> runLaneAction(event.item.id) {
+                callInfoLane(event.item.id, event.lane) to { item: QueueItem ->
+                    item.copy(infoLane = event.lane)
+                }
+            }
+
+            is QueueManagementUiEvent.ManualPassClicked -> runLaneAction(event.item.id) {
+                markManualEntry(event.item.id) to { item: QueueItem ->
+                    item.copy(manualPassed = true)
+                }
+            }
+        }
+    }
+
+    /* ============================================================
+     * Info-tablo: yo'lga chaqirish / o'tkazildi
+     * ============================================================ */
+
+    /**
+     * Ikkala action uchun umumiy oqim:
+     *  1. Rol + single-flight guard
+     *  2. So'rov (progress → tugmalar disable)
+     *  3. Success → optimistik local patch + toast + silent refresh
+     *     (backend `info_lane`/`manual_passed` bilan reconcile bo'ladi)
+     *  4. Error → faqat toast; local state tegilmaydi
+     *
+     * @param request so'rovni bajaradi va success holida item'ga qo'llaniladigan
+     *                optimistik transform'ni qaytaradi.
+     */
+    private fun runLaneAction(
+        queueId: Long,
+        request: suspend () -> Pair<ApiResult<String>, (QueueItem) -> QueueItem>
+    ) {
+        if (!_state.value.canManageInfoLane) return
+        if (laneJob?.isActive == true) return
+
+        _state.update { it.copy(laneActionInProgressId = queueId) }
+
+        laneJob = viewModelScope.launch {
+            val (result, transform) = request()
+
+            when (result) {
+                is ApiResult.Success -> {
+                    _state.update { it.updateItem(queueId, transform) }
+                    result.data.takeIf { it.isNotBlank() }?.let(::emitToast)
+                    silentRefresh()
+                }
+                is ApiResult.Error -> emitToast(result.message.ifBlank { MSG_ACTION_FAILED })
+                ApiResult.NetworkError -> emitToast(MSG_NO_INTERNET)
+                ApiResult.Unauthorized -> emitToast(MSG_UNAUTHORIZED)
+            }
+
+            _state.update { it.copy(laneActionInProgressId = null) }
+        }
+    }
+
+    /** Rol o'zgarishi (login/logout) reaktiv kuzatiladi. */
+    private fun observeUserRole() {
+        viewModelScope.launch {
+            authRepository.currentUser.collect { user ->
+                _state.update { it.copy(canManageInfoLane = user.canManageInfoLane) }
+            }
         }
     }
 
@@ -502,6 +580,34 @@ class QueueManagementViewModel(
         )
     }
 
+    /**
+     * Bitta navbatni (id bo'yicha) ikkala tab'da ham yangilash — item qaysi
+     * ro'yxatda turgani (banner / waiting / history) ahamiyatsiz.
+     */
+    private fun QueueManagementUiState.updateItem(
+        id: Long,
+        transform: (QueueItem) -> QueueItem
+    ): QueueManagementUiState = copy(
+        open = open.updateItem(id, transform),
+        tent = tent.updateItem(id, transform)
+    )
+
+    private fun TabState.updateItem(
+        id: Long,
+        transform: (QueueItem) -> QueueItem
+    ): TabState = copy(
+        currentlyEntering = currentlyEntering?.let { if (it.id == id) transform(it) else it },
+        waitingItems = waitingItems.updateItem(id, transform),
+        enteredItems = enteredItems.updateItem(id, transform)
+    )
+
+    private fun List<QueueItem>.updateItem(
+        id: Long,
+        transform: (QueueItem) -> QueueItem
+    ): List<QueueItem> =
+        if (none { it.id == id }) this
+        else map { if (it.id == id) transform(it) else it }
+
     private fun isToday(): Boolean = _state.value.selectedDate == today()
 
     private companion object {
@@ -510,6 +616,7 @@ class QueueManagementViewModel(
 
         const val MSG_NO_INTERNET = "Internet aloqasi yo'q"
         const val MSG_UNAUTHORIZED = "Sessiya muddati tugagan, qayta kiring"
+        const val MSG_ACTION_FAILED = "Amalni bajarib bo'lmadi"
 
         fun today(): String =
             SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())

@@ -10,6 +10,8 @@ import retrofit2.HttpException
 import uz.jurabekov.guard.core.network.ApiResult
 import uz.jurabekov.guard.data.remote.api.QueueApi
 import uz.jurabekov.guard.data.remote.dto.ApiErrorDto
+import uz.jurabekov.guard.data.remote.dto.InfoLaneActionResponseDto
+import uz.jurabekov.guard.data.remote.dto.InfoLaneCallRequestDto
 import uz.jurabekov.guard.data.remote.dto.QueueCancelRequestDto
 import uz.jurabekov.guard.data.remote.dto.QueueListDataDto
 import uz.jurabekov.guard.data.remote.dto.QueueRequestDto
@@ -64,6 +66,23 @@ class QueueRepositoryImpl(
         if (!response.success) {
             throw IllegalStateException(response.message ?: "Navbatni bekor qilib bo'lmadi")
         }
+    }
+
+    override suspend fun callInfoLane(queueId: Long, lane: Int): ApiResult<String> = safeCall {
+        api.callInfoLane(queueId, InfoLaneCallRequestDto(lane = lane)).requireMessage()
+    }
+
+    override suspend fun markManualEntry(queueId: Long): ApiResult<String> = safeCall {
+        api.markManualEntry(queueId).requireMessage()
+    }
+
+    /**
+     * HTTP 200 + `success=false` — backend biznes-xatoligi (masalan, yo'l band).
+     * `safeCall` uni `ApiResult.Error`ga aylantiradi, UI toast ko'rsatadi.
+     */
+    private fun InfoLaneActionResponseDto.requireMessage(): String {
+        if (!success) throw IllegalStateException(message ?: "Amalni bajarib bo'lmadi")
+        return message.orEmpty()
     }
 
     private fun QueueListDataDto.toDomain(): QueueData = QueueData(

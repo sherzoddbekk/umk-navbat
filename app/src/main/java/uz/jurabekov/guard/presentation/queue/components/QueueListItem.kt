@@ -48,12 +48,16 @@ import uz.jurabekov.guard.ui.theme.Success500
  * @param onClick `null` bo'lsa item passive (eski QueueScreen ishlatadi).
  *                Non-null bo'lsa ripple effect bilan clickable bo'ladi
  *                (Navbat boshqaruvi ekranida permit dialog ochish uchun).
+ * @param actions Karta ichida, ma'lumot qatoridan pastda chiziladigan
+ *                ixtiyoriy action qatori (Navbat boshqaruvidagi yo'l
+ *                tugmalari). `null` — eski ko'rinish (QueueScreen).
  */
 @Composable
 fun QueueListItem(
     item: QueueItem,
     modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    actions: (@Composable () -> Unit)? = null
 ) {
     // Clickable modifier — onClick mavjud bo'lsa qo'shamiz. Bu Card'ning
     // ichidagi padding va shape ustida ishlaydi (ripple to'g'ri renderlanadi).
@@ -64,9 +68,25 @@ fun QueueListItem(
     }
 
     when (item.status) {
-        QueueItemStatus.WAITING -> WaitingItem(item, cardModifier)
-        QueueItemStatus.ENTERED -> HistoryItem(item, cardModifier, skipped = false)
-        QueueItemStatus.SKIPPED -> HistoryItem(item, cardModifier, skipped = true)
+        QueueItemStatus.WAITING -> WaitingItem(item, cardModifier, actions)
+        QueueItemStatus.ENTERED -> HistoryItem(item, cardModifier, skipped = false, actions = actions)
+        QueueItemStatus.SKIPPED -> HistoryItem(item, cardModifier, skipped = true, actions = actions)
+    }
+}
+
+/**
+ * Action slot'ini karta ichida, ma'lumot qatoridan pastda chizadi.
+ * `null` bo'lsa hech narsa qo'shmaydi — karta balandligi eskicha qoladi.
+ */
+@Composable
+private fun CardActions(actions: (@Composable () -> Unit)?) {
+    if (actions == null) return
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = Dimens.SpaceS, end = Dimens.SpaceS, bottom = Dimens.SpaceS)
+    ) {
+        actions()
     }
 }
 
@@ -76,7 +96,8 @@ fun QueueListItem(
 @Composable
 private fun WaitingItem(
     item: QueueItem,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    actions: (@Composable () -> Unit)? = null
 ) {
     Card(
         shape = RoundedCornerShape(Dimens.RadiusM),
@@ -90,38 +111,42 @@ private fun WaitingItem(
         ),
         modifier = modifier.fillMaxWidth()
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Dimens.SpaceM, vertical = 6.dp)
-        ) {
-            NumberBox(
-                number = item.queueNumber,
-                bg = MaterialTheme.colorScheme.primaryContainer,
-                fg = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-
-            Spacer(Modifier.width(Dimens.SpaceM))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = item.fullName,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Dimens.SpaceM, vertical = 6.dp)
+            ) {
+                NumberBox(
+                    number = item.queueNumber,
+                    bg = MaterialTheme.colorScheme.primaryContainer,
+                    fg = MaterialTheme.colorScheme.onPrimaryContainer
                 )
-                Spacer(Modifier.height(1.dp))
-                Text(
-                    text = item.plate,
-                    fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace,
-                    letterSpacing = 0.6.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
-                )
+
+                Spacer(Modifier.width(Dimens.SpaceM))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = item.fullName,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1
+                    )
+                    Spacer(Modifier.height(1.dp))
+                    Text(
+                        text = item.plate,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        letterSpacing = 0.6.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
+                    )
+                }
             }
+
+            CardActions(actions)
         }
     }
 }
@@ -133,7 +158,8 @@ private fun WaitingItem(
 private fun HistoryItem(
     item: QueueItem,
     modifier: Modifier = Modifier,
-    skipped: Boolean
+    skipped: Boolean,
+    actions: (@Composable () -> Unit)? = null
 ) {
     val containerColor = if (skipped) {
         Color(0xFFFEE2E2)  // Soft red-50
@@ -153,60 +179,64 @@ private fun HistoryItem(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = modifier.fillMaxWidth()
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = Dimens.SpaceM, vertical = 6.dp)
-        ) {
-            NumberBox(number = item.queueNumber, bg = numberBg, fg = numberFg)
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Dimens.SpaceM, vertical = 6.dp)
+            ) {
+                NumberBox(number = item.queueNumber, bg = numberBg, fg = numberFg)
 
-            Spacer(Modifier.width(Dimens.SpaceM))
+                Spacer(Modifier.width(Dimens.SpaceM))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = item.fullName,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = titleColor,
-                    maxLines = 1
-                )
-                Spacer(Modifier.height(1.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = item.fullName,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = titleColor,
+                        maxLines = 1
+                    )
+                    Spacer(Modifier.height(1.dp))
 
-                if (skipped) {
-                    // Plate + status matn
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (skipped) {
+                        // Plate + status matn
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = item.plate,
+                                fontSize = 12.sp,
+                                fontFamily = FontFamily.Monospace,
+                                letterSpacing = 0.6.sp,
+                                color = secondaryColor,
+                                textDecoration = TextDecoration.LineThrough,
+                                maxLines = 1
+                            )
+                            Text(
+                                text = "  ·  Navbat o'tib ketdi",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFFDC2626),
+                                maxLines = 1
+                            )
+                        }
+                    } else {
                         Text(
                             text = item.plate,
                             fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace,
                             letterSpacing = 0.6.sp,
                             color = secondaryColor,
-                            textDecoration = TextDecoration.LineThrough,
-                            maxLines = 1
-                        )
-                        Text(
-                            text = "  ·  Navbat o'tib ketdi",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFFDC2626),
                             maxLines = 1
                         )
                     }
-                } else {
-                    Text(
-                        text = item.plate,
-                        fontSize = 12.sp,
-                        fontFamily = FontFamily.Monospace,
-                        letterSpacing = 0.6.sp,
-                        color = secondaryColor,
-                        maxLines = 1
-                    )
                 }
+
+                // Status icon
+                StatusBadge(item = item, skipped = skipped)
             }
 
-            // Status icon
-            StatusBadge(item = item, skipped = skipped)
+            CardActions(actions)
         }
     }
 }

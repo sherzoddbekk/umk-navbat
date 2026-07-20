@@ -42,6 +42,15 @@ interface QueueRepository {
      */
     suspend fun cancelOwnerQueue(ownerToken: String, plate: String): ApiResult<Unit>
 
+    /**
+     * Mashinani info-tabloda `lane` (1..3) yo'liga chaqirish.
+     * Muvaffaqiyatda backend `message`'ini qaytaradi (toast uchun).
+     */
+    suspend fun callInfoLane(queueId: Long, lane: Int): ApiResult<String>
+
+    /** Mashina qo'lda o'tkazildi — tablodan ketadi, yo'l bo'shaydi. */
+    suspend fun markManualEntry(queueId: Long): ApiResult<String>
+
     /** Pusher connection holati. */
     val wsConnectionState: StateFlow<ConnectionState>
 

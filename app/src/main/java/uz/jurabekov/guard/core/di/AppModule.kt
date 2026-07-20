@@ -15,12 +15,14 @@ import uz.jurabekov.guard.data.repository.ScaleRepositoryImpl
 import uz.jurabekov.guard.domain.repository.AuthRepository
 import uz.jurabekov.guard.domain.repository.QueueRepository
 import uz.jurabekov.guard.domain.repository.ScaleRepository
+import uz.jurabekov.guard.domain.usecase.CallInfoLaneUseCase
 import uz.jurabekov.guard.domain.usecase.CancelOwnerQueueUseCase
 import uz.jurabekov.guard.domain.usecase.GetPermitsUseCase
 import uz.jurabekov.guard.domain.usecase.GetQueueByDateUseCase
 import uz.jurabekov.guard.domain.usecase.GetQueueListUseCase
 import uz.jurabekov.guard.domain.usecase.GetScaleListUseCase
 import uz.jurabekov.guard.domain.usecase.LoginUseCase
+import uz.jurabekov.guard.domain.usecase.MarkManualEntryUseCase
 import uz.jurabekov.guard.domain.usecase.ObserveQueueUpdatesUseCase
 import uz.jurabekov.guard.domain.usecase.SubmitQueueUseCase
 import uz.jurabekov.guard.presentation.auth.LoginViewModel
@@ -71,6 +73,8 @@ val appModule = module {
     // Navbat boshqaruvi use case'lari
     factory { GetQueueByDateUseCase(repository = get()) }
     factory { GetPermitsUseCase(repository = get()) }
+    factory { CallInfoLaneUseCase(repository = get()) }
+    factory { MarkManualEntryUseCase(repository = get()) }
 
     // ===== ViewModels =====
     viewModelOf(::QueueViewModel)
