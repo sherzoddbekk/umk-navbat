@@ -49,7 +49,7 @@ class QueueManagementInfoLaneTest {
     @Test
     fun `yo'lga chaqirish - API chaqiriladi va item yangilanadi`() = runTest(dispatcher) {
         val repo = FakeQueueRepository(listOf(permittedItem()))
-        val vm = createViewModel(repo, role = Roles.GATE_INSPECTOR)
+        val vm = createViewModel(repo)
         advanceUntilIdle()
 
         vm.onEvent(QueueManagementUiEvent.LaneCallClicked(permittedItem(), lane = 2))
@@ -66,7 +66,7 @@ class QueueManagementInfoLaneTest {
         val repo = FakeQueueRepository(listOf(permittedItem())).apply {
             callLaneResult = ApiResult.Error(message = "1-yo'l band")
         }
-        val vm = createViewModel(repo, role = Roles.ADMIN)
+        val vm = createViewModel(repo)
         val effects = mutableListOf<QueueManagementUiEffect>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             vm.effect.toList(effects)
@@ -86,7 +86,7 @@ class QueueManagementInfoLaneTest {
     @Test
     fun `ikkita tez bosish - faqat bitta so'rov ketadi`() = runTest(dispatcher) {
         val repo = FakeQueueRepository(listOf(permittedItem())).apply { actionDelayMs = 500 }
-        val vm = createViewModel(repo, role = Roles.ADMIN)
+        val vm = createViewModel(repo)
         advanceUntilIdle()
 
         vm.onEvent(QueueManagementUiEvent.LaneCallClicked(permittedItem(), lane = 1))
@@ -103,7 +103,7 @@ class QueueManagementInfoLaneTest {
     @Test
     fun `o'tkazildi - item manualPassed bo'ladi`() = runTest(dispatcher) {
         val repo = FakeQueueRepository(listOf(permittedItem(infoLane = 1)))
-        val vm = createViewModel(repo, role = Roles.GATE_INSPECTOR)
+        val vm = createViewModel(repo)
         advanceUntilIdle()
 
         vm.onEvent(QueueManagementUiEvent.ManualPassClicked(permittedItem(infoLane = 1)))
@@ -114,13 +114,42 @@ class QueueManagementInfoLaneTest {
     }
 
     /* ============================================================
-     * Rol gating
+     * Rol bo'yicha bo'lim ko'rinishi
      * ============================================================ */
 
     @Test
-    fun `mos bo'lmagan rol - tugmalar yashirin va API chaqirilmaydi`() = runTest(dispatcher) {
+    fun `bo'lim matritsasi - har rol to'g'ri bo'limlarni ko'radi`() = runTest(dispatcher) {
+        val cases = mapOf(
+            Roles.ADMIN to listOf(P, G, B),
+            Roles.CONTROLLER to listOf(P, G, B),
+            Roles.OPERATOR to listOf(P, B),
+            Roles.GUEST to listOf(P, B),
+            Roles.GATE_INSPECTOR to listOf(G, B),
+            "noma'lum_rol" to listOf(P, B)   // default: gate emas
+        )
+        cases.forEach { (role, expected) ->
+            val vm = createViewModel(FakeQueueRepository(listOf(permittedItem())), role)
+            advanceUntilIdle()
+            assertEquals(
+                "$role uchun bo'limlar",
+                expected,
+                vm.state.value.availableSections
+            )
+        }
+    }
+
+    @Test
+    fun `darvoza_tekshiruv - default tanlangan bo'lim GATE bo'ladi`() = runTest(dispatcher) {
+        // PERMIT_QUEUE (default) bu rolga ko'rinmaydi → birinchi mavjudiga o'tadi.
+        val vm = createViewModel(FakeQueueRepository(emptyList()), Roles.GATE_INSPECTOR)
+        advanceUntilIdle()
+        assertEquals(QueueSection.GATE_QUEUE, vm.state.value.selectedSection)
+    }
+
+    @Test
+    fun `gate roli emas - chaqiruv tugmasi API chaqirmaydi`() = runTest(dispatcher) {
         val repo = FakeQueueRepository(listOf(permittedItem()))
-        val vm = createViewModel(repo, role = "haydovchi")
+        val vm = createViewModel(repo, Roles.OPERATOR)
         advanceUntilIdle()
 
         assertEquals(false, vm.state.value.canManageInfoLane)
@@ -129,16 +158,7 @@ class QueueManagementInfoLaneTest {
         vm.onEvent(QueueManagementUiEvent.LaneCallClicked(permittedItem(), lane = 1))
         advanceUntilIdle()
 
-        assertTrue("Roli mos emas — API chaqirilmasligi kerak", repo.laneCalls.isEmpty())
-    }
-
-    @Test
-    fun `admin va darvoza_tekshiruv rollari tugmalarni ko'radi`() = runTest(dispatcher) {
-        listOf(Roles.ADMIN, Roles.GATE_INSPECTOR).forEach { role ->
-            val vm = createViewModel(FakeQueueRepository(listOf(permittedItem())), role)
-            advanceUntilIdle()
-            assertTrue("$role uchun tugmalar ko'rinishi kerak", vm.state.value.canManageInfoLane)
-        }
+        assertTrue("Rol mos emas — API chaqirilmasligi kerak", repo.laneCalls.isEmpty())
     }
 
     /* ============================================================
@@ -147,7 +167,7 @@ class QueueManagementInfoLaneTest {
 
     private fun createViewModel(
         repo: FakeQueueRepository,
-        role: String
+        role: String = Roles.ADMIN
     ) = QueueManagementViewModel(
         getQueueByDate = GetQueueByDateUseCase(repo),
         getPermits = GetPermitsUseCase(repo),
@@ -157,9 +177,9 @@ class QueueManagementInfoLaneTest {
         authRepository = FakeAuthRepository(testUser(role))
     )
 
-    /** `has_permit=true` → item ENTERED ro'yxatida turadi. */
+    /** Xom ro'yxatdan (OPEN) shu id'li item. */
     private fun QueueManagementViewModel.itemInState(): QueueItem =
-        state.value.open.enteredItems.first { it.id == QUEUE_ID }
+        state.value.openItems.first { it.id == QUEUE_ID }
 
     private fun permittedItem(infoLane: Int? = null) = QueueItem(
         id = QUEUE_ID,
@@ -176,5 +196,10 @@ class QueueManagementInfoLaneTest {
 
     private companion object {
         const val QUEUE_ID = 13299L
+
+        // Bo'lim qisqartmalari — matritsa testini o'qishli qilish uchun.
+        val P = QueueSection.PERMIT_QUEUE
+        val G = QueueSection.GATE_QUEUE
+        val B = QueueSection.GIVEN_PERMITS
     }
 }

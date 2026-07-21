@@ -29,21 +29,28 @@ object Permissions {
 /**
  * Backend rol kodlari (`user.role_code`).
  *
- * Permission'lardan farqli o'laroq, ba'zi amallar rol darajasida cheklangan
- * (backend hozircha ular uchun alohida permission bermaydi) — masalan
- * info-tablo chaqiruvi.
+ * "Navbat boshqaruvi" ekranidagi bo'limlar (`QueueSection`) ko'rinishi rolga
+ * bog'liq — backend hozircha buning uchun alohida permission bermaydi
+ * (`user.permissions` ichida faqat yuqori darajali `queue.view` bor). Rolni
+ * backend belgilaydi, mapping esa `QueueSection`da.
  */
 object Roles {
     const val ADMIN = "admin"
+    const val OPERATOR = "operator"
+    const val CONTROLLER = "nazoratchi"
+    const val GUEST = "mehmon"
     const val GATE_INSPECTOR = "darvoza_tekshiruv"
+
+    /** "Darvoza navbati"ni ko'radigan va yo'lga chaqira oladigan rollar. */
+    val GATE_MANAGERS = setOf(ADMIN, CONTROLLER, GATE_INSPECTOR)
 }
 
 /**
- * Info-tablo yo'l chaqiruvi va "o'tkazildi" amallarini bajara oladimi.
- * Faqat `admin` va `darvoza_tekshiruv` rollari.
+ * "Darvoza navbati" bo'limini ko'ra va info-tablo amallarini (yo'lga chaqirish /
+ * "O'tkazildi") bajara oladimi — [Roles.GATE_MANAGERS] rollari.
  */
 val User?.canManageInfoLane: Boolean
-    get() = this != null && (roleCode == Roles.ADMIN || roleCode == Roles.GATE_INSPECTOR)
+    get() = this != null && roleCode in Roles.GATE_MANAGERS
 
 /**
  * Permission tekshirish — `User.permissions` `List<String>` uchun.

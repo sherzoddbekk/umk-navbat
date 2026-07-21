@@ -3,28 +3,26 @@ package uz.jurabekov.guard.presentation.queue_management
 import uz.jurabekov.guard.domain.model.Permit
 import uz.jurabekov.guard.domain.model.QueueItem
 import uz.jurabekov.guard.domain.model.VehicleType
-import uz.jurabekov.guard.presentation.queue.TabState
 
 /**
  * Navbat boshqaruvi ekrani — MVI state.
  *
- * **`open` / `tent`** — `presentation.queue.TabState`'ni qayta ishlatamiz
- * (UI rendering qoidalari bir xil — `QueueListItem`, `NowEnteringBanner`).
+ * **Ma'lumot modeli:** ikkita xom ro'yxat ([openItems] / [tentItems]) saqlanadi
+ * — bo'lim (permit/gate/given) va yo'nalish (open/tent) bo'yicha filtrlash UI
+ * hisoblash paytida ([visibleItems]) amalga oshadi. Bu status-asosli partition
+ * (`QueueScreen`'dagi `TabState`)dan farqli — bu yerda kesim `has_permit` /
+ * `manual_passed` bo'yicha, shuning uchun xom ro'yxat toza.
  *
- * **`totalPermittedCount`** — ekran headerida "Jami: N ta" sifatida ko'rsatiladi.
- * `has_permit=true` mashinalar (OPEN + TENT) jami soni. Banner ichidagi
- * (currentlyEntering) hisoblanmaydi — u WAITING statusda; faqat `ENTERED`'lar.
- *
- * **`isToday`** — ViewModel WS event'larni faqat shu flag true bo'lganda
- * apply qiladi. Compose tomonidan o'qib ko'rsatish uchun ham foydali
- * (kelajakda "real-time" indicator qo'shish mumkin).
+ * **`selectedSection`** — [availableSections] ichidan bo'lishi kafolatlanadi
+ * (ViewModel rol o'zgarganda tuzatib turadi).
  */
 data class QueueManagementUiState(
     val selectedDate: String,                            // yyyy-MM-dd
 
-    val open: TabState = TabState(),
-    val tent: TabState = TabState(),
+    val openItems: List<QueueItem> = emptyList(),
+    val tentItems: List<QueueItem> = emptyList(),
 
+    val selectedSection: QueueSection = QueueSection.PERMIT_QUEUE,
     val selectedTab: VehicleType = VehicleType.OPEN,
 
     val queueDate: String? = null,
@@ -36,29 +34,42 @@ data class QueueManagementUiState(
     val permitDialog: PermitDialogState? = null,
 
     // ===== Info-tablo (yo'lga chaqirish) =====
-    /**
-     * Joriy foydalanuvchi yo'l chaqiruvi tugmalarini ko'ra oladimi
-     * (`admin` yoki `darvoza_tekshiruv`). `AuthRepository.currentUser`'dan.
-     */
-    val canManageInfoLane: Boolean = false,
-    /** Hozir so'rov ketayotgan navbat `id`'si — tugmalar disable bo'ladi. */
+    /** Joriy foydalanuvchi roli (`role_code`) — bo'lim ko'rinishini belgilaydi. */
+    val userRole: String? = null,
+    /** Hozir so'rov ketayotgan navbat `id`'si — chaqiruv tugmalari disable bo'ladi. */
     val laneActionInProgressId: Long? = null
 ) {
-    val totalPermittedCount: Int
-        get() = open.enteredOnlyCount + tent.enteredOnlyCount
+    /** Rolga ko'ra ko'rinadigan bo'lim tablari. */
+    val availableSections: List<QueueSection>
+        get() = QueueSection.availableFor(userRole)
 
-    val activeTab: TabState
-        get() = when (selectedTab) {
-            VehicleType.OPEN -> open
-            VehicleType.TENT -> tent
-        }
+    /** Darvoza amallarini (chaqiruv / "O'tkazildi") bajara oladimi. */
+    val canManageInfoLane: Boolean
+        get() = QueueSection.GATE_QUEUE.isVisibleFor(userRole)
+
+    private val activeItems: List<QueueItem>
+        get() = if (selectedTab == VehicleType.OPEN) openItems else tentItems
+
+    /** Joriy bo'lim + yo'nalish uchun ko'rsatiladigan, tartiblangan ro'yxat. */
+    val visibleItems: List<QueueItem>
+        get() = activeItems
+            .filter { selectedSection.matches(it) }
+            .sortedBy { it.queueNumber }
+
+    /** Date bar counter — jami berilgan ruxsatnomalar (OPEN + TENT). */
+    val totalPermittedCount: Int
+        get() = openItems.count { it.hasPermit } + tentItems.count { it.hasPermit }
+
+    /** Hali hech qanday ma'lumot yuklanmagan (loading/empty state ajratish uchun). */
+    val hasNoData: Boolean
+        get() = openItems.isEmpty() && tentItems.isEmpty()
 }
 
 /**
  * Permit dialog uchun sealed state.
  *
  * `queueId` har bir variantda saqlanadi — `Retry` ishlatish uchun kerak.
- * `item` (ixtiyoriy) — dialog header'da plate/full_name ko'rsatish uchun
+ * `baseItem` (ixtiyoriy) — dialog header'da plate/full_name ko'rsatish uchun
  * (network'dan kelguncha placeholder).
  */
 sealed interface PermitDialogState {

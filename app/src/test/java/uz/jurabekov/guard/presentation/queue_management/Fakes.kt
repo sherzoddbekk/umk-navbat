@@ -110,7 +110,7 @@ class FakeAuthRepository(user: User?) : AuthRepository {
     }
 }
 
-/** `role_code` bo'yicha test useri. */
+/** `role_code` bo'yicha test useri (bo'lim ko'rinishi rolga bog'liq). */
 fun testUser(roleCode: String) = User(
     id = 1,
     fullName = "Test User",

@@ -42,11 +42,19 @@ import uz.jurabekov.guard.ui.theme.Dimens
  *  - Icon + text bilan vizual semantika.
  *  - Pill (50% radius) — muloyim, hozirgi UI til bilan mos.
  */
+/**
+ * @param activeContainerColor tanlangan segment foni. Default — `surface`
+ *        (QueueScreen'dagi eski ko'rinish). Navbat boshqaruvi ekranida to'q
+ *        rang (masalan Accent) berilib, tanlov aniqroq ajratiladi.
+ * @param activeContentColor tanlangan segment matn/ikonasi rangi.
+ */
 @Composable
 fun QueueTypeTabs(
     selected: VehicleType,
     onSelect: (VehicleType) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    activeContainerColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.surface,
+    activeContentColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface
 ) {
     Surface(
         modifier = modifier
@@ -67,6 +75,8 @@ fun QueueTypeTabs(
                 icon = Icons.Outlined.LocalShipping,
                 label = "Usti ochiq",
                 active = selected == VehicleType.OPEN,
+                activeContainerColor = activeContainerColor,
+                activeContentColor = activeContentColor,
                 onClick = { onSelect(VehicleType.OPEN) }
             )
             TabSegment(
@@ -74,6 +84,8 @@ fun QueueTypeTabs(
                 icon = Icons.Outlined.Warehouse,
                 label = "Usti yopiq",
                 active = selected == VehicleType.TENT,
+                activeContainerColor = activeContainerColor,
+                activeContentColor = activeContentColor,
                 onClick = { onSelect(VehicleType.TENT) }
             )
         }
@@ -85,6 +97,8 @@ private fun TabSegment(
     icon: ImageVector,
     label: String,
     active: Boolean,
+    activeContainerColor: androidx.compose.ui.graphics.Color,
+    activeContentColor: androidx.compose.ui.graphics.Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -100,13 +114,13 @@ private fun TabSegment(
     )
 
     val bg = if (active) {
-        MaterialTheme.colorScheme.surface.copy(alpha = bgAlpha)
+        activeContainerColor.copy(alpha = bgAlpha)
     } else {
         androidx.compose.ui.graphics.Color.Transparent
     }
 
     val fg = if (active) {
-        MaterialTheme.colorScheme.onSurface
+        activeContentColor
     } else {
         MaterialTheme.colorScheme.onSurfaceVariant
     }

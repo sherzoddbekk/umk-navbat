@@ -51,13 +51,25 @@ import uz.jurabekov.guard.ui.theme.Success500
  * @param actions Karta ichida, ma'lumot qatoridan pastda chiziladigan
  *                ixtiyoriy action qatori (Navbat boshqaruvidagi yo'l
  *                tugmalari). `null` — eski ko'rinish (QueueScreen).
+ * @param compact Shrift/paddinglarni bir oz kichraytiradi (Navbat boshqaruvi
+ *                ekranida zichroq ro'yxat). `false` — QueueScreen ko'rinishi.
+ * @param containerColor Karta fonini majburan belgilaydi (Navbat boshqaruvida
+ *                bo'limlarni rang bilan ajratish uchun). `null` — status
+ *                bo'yicha standart rang (QueueScreen). SKIPPED holatida
+ *                e'tiborga olinmaydi (qizil ogohlantirish saqlanadi).
+ * @param borderColor Karta atrofidagi ingichka chegara rangi. `null` —
+ *                HistoryItem'da chegara yo'q (standart). WaitingItem doim
+ *                o'z chegarasiga ega.
  */
 @Composable
 fun QueueListItem(
     item: QueueItem,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
-    actions: (@Composable () -> Unit)? = null
+    actions: (@Composable () -> Unit)? = null,
+    compact: Boolean = false,
+    containerColor: Color? = null,
+    borderColor: Color? = null
 ) {
     // Clickable modifier — onClick mavjud bo'lsa qo'shamiz. Bu Card'ning
     // ichidagi padding va shape ustida ishlaydi (ripple to'g'ri renderlanadi).
@@ -68,26 +80,37 @@ fun QueueListItem(
     }
 
     when (item.status) {
-        QueueItemStatus.WAITING -> WaitingItem(item, cardModifier, actions)
-        QueueItemStatus.ENTERED -> HistoryItem(item, cardModifier, skipped = false, actions = actions)
-        QueueItemStatus.SKIPPED -> HistoryItem(item, cardModifier, skipped = true, actions = actions)
+        QueueItemStatus.WAITING -> WaitingItem(item, cardModifier, actions, compact, containerColor)
+        QueueItemStatus.ENTERED -> HistoryItem(item, cardModifier, skipped = false, actions = actions, compact = compact, containerOverride = containerColor, borderColor = borderColor)
+        QueueItemStatus.SKIPPED -> HistoryItem(item, cardModifier, skipped = true, actions = actions, compact = compact, containerOverride = containerColor, borderColor = borderColor)
     }
+}
+
+/**
+ * Compact rejimidagi o'lchamlar — bitta joyda, WaitingItem va HistoryItem
+ * o'rtasida bir xil bo'lishi uchun.
+ */
+private class ItemSizes(compact: Boolean) {
+    val name = if (compact) 13.sp else 14.sp
+    val plate = if (compact) 11.sp else 12.sp
+    val numberBox = if (compact) 34.dp else 38.dp
+    val numberFont = if (compact) 13.sp else 14.sp
+    val rowPadV = if (compact) 5.dp else 6.dp
 }
 
 /**
  * Action slot'ini karta ichida, ma'lumot qatoridan pastda chizadi.
  * `null` bo'lsa hech narsa qo'shmaydi — karta balandligi eskicha qoladi.
+ *
+ * Padding YO'Q — content o'z chetlanishini o'zi belgilaydi. Shu tufayli
+ * chaqiruv tugmalari inset bo'lishi, "O'tkazilgan" bari esa full-bleed
+ * (chetdan-chetga) bo'lishi mumkin. Karta o'z shape'iga clip qilgani uchun
+ * full-bleed bar pastki yumaloq burchaklarga mos qirqiladi.
  */
 @Composable
 private fun CardActions(actions: (@Composable () -> Unit)?) {
     if (actions == null) return
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = Dimens.SpaceS, end = Dimens.SpaceS, bottom = Dimens.SpaceS)
-    ) {
-        actions()
-    }
+    actions()
 }
 
 /* ============================================================
@@ -97,12 +120,15 @@ private fun CardActions(actions: (@Composable () -> Unit)?) {
 private fun WaitingItem(
     item: QueueItem,
     modifier: Modifier = Modifier,
-    actions: (@Composable () -> Unit)? = null
+    actions: (@Composable () -> Unit)? = null,
+    compact: Boolean = false,
+    containerOverride: Color? = null
 ) {
+    val sizes = ItemSizes(compact)
     Card(
         shape = RoundedCornerShape(Dimens.RadiusM),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = containerOverride ?: MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(
@@ -116,12 +142,13 @@ private fun WaitingItem(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = Dimens.SpaceM, vertical = 6.dp)
+                    .padding(horizontal = Dimens.SpaceM, vertical = sizes.rowPadV)
             ) {
                 NumberBox(
                     number = item.queueNumber,
                     bg = MaterialTheme.colorScheme.primaryContainer,
-                    fg = MaterialTheme.colorScheme.onPrimaryContainer
+                    fg = MaterialTheme.colorScheme.onPrimaryContainer,
+                    sizes = sizes
                 )
 
                 Spacer(Modifier.width(Dimens.SpaceM))
@@ -129,7 +156,7 @@ private fun WaitingItem(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = item.fullName,
-                        fontSize = 14.sp,
+                        fontSize = sizes.name,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1
@@ -137,7 +164,7 @@ private fun WaitingItem(
                     Spacer(Modifier.height(1.dp))
                     Text(
                         text = item.plate,
-                        fontSize = 12.sp,
+                        fontSize = sizes.plate,
                         fontFamily = FontFamily.Monospace,
                         letterSpacing = 0.6.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -159,12 +186,15 @@ private fun HistoryItem(
     item: QueueItem,
     modifier: Modifier = Modifier,
     skipped: Boolean,
-    actions: (@Composable () -> Unit)? = null
+    actions: (@Composable () -> Unit)? = null,
+    compact: Boolean = false,
+    containerOverride: Color? = null,
+    borderColor: Color? = null
 ) {
-    val containerColor = if (skipped) {
-        Color(0xFFFEE2E2)  // Soft red-50
-    } else {
-        Color(0xFFCBD5DC)  // Slate
+    val sizes = ItemSizes(compact)
+    val containerColor = when {
+        skipped -> Color(0xFFFEE2E2)          // Soft red-50 (override e'tiborga olinmaydi)
+        else -> containerOverride ?: Color(0xFFCBD5DC)  // Slate (default)
     }
 
     val numberBg = if (skipped) Color(0xFFFCA5A5) else Color(0xFFA8B7C2)
@@ -177,6 +207,7 @@ private fun HistoryItem(
         shape = RoundedCornerShape(Dimens.RadiusM),
         colors = CardDefaults.cardColors(containerColor = containerColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = borderColor?.let { BorderStroke(0.8.dp, it) },
         modifier = modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -184,16 +215,16 @@ private fun HistoryItem(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = Dimens.SpaceM, vertical = 6.dp)
+                    .padding(horizontal = Dimens.SpaceM, vertical = sizes.rowPadV)
             ) {
-                NumberBox(number = item.queueNumber, bg = numberBg, fg = numberFg)
+                NumberBox(number = item.queueNumber, bg = numberBg, fg = numberFg, sizes = sizes)
 
                 Spacer(Modifier.width(Dimens.SpaceM))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = item.fullName,
-                        fontSize = 14.sp,
+                        fontSize = sizes.name,
                         fontWeight = FontWeight.SemiBold,
                         color = titleColor,
                         maxLines = 1
@@ -205,7 +236,7 @@ private fun HistoryItem(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = item.plate,
-                                fontSize = 12.sp,
+                                fontSize = sizes.plate,
                                 fontFamily = FontFamily.Monospace,
                                 letterSpacing = 0.6.sp,
                                 color = secondaryColor,
@@ -223,7 +254,7 @@ private fun HistoryItem(
                     } else {
                         Text(
                             text = item.plate,
-                            fontSize = 12.sp,
+                            fontSize = sizes.plate,
                             fontFamily = FontFamily.Monospace,
                             letterSpacing = 0.6.sp,
                             color = secondaryColor,
@@ -232,7 +263,7 @@ private fun HistoryItem(
                     }
                 }
 
-                // Status icon
+                // Status icon / vaqt badge
                 StatusBadge(item = item, skipped = skipped)
             }
 
@@ -300,17 +331,17 @@ private fun StatusBadge(item: QueueItem, skipped: Boolean) {
 
 
 @Composable
-private fun NumberBox(number: Int, bg: Color, fg: Color) {
+private fun NumberBox(number: Int, bg: Color, fg: Color, sizes: ItemSizes) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
-            .size(38.dp)
+            .size(sizes.numberBox)
             .clip(RoundedCornerShape(Dimens.RadiusS))
             .background(bg)
     ) {
         Text(
             text = "$number",
-            fontSize = 14.sp,
+            fontSize = sizes.numberFont,
             fontWeight = FontWeight.SemiBold,
             color = fg
         )

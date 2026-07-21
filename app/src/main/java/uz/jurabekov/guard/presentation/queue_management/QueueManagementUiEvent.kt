@@ -13,6 +13,7 @@ sealed interface QueueManagementUiEvent {
     data object Refresh : QueueManagementUiEvent
     data object AppResumed : QueueManagementUiEvent
     data class TabSelected(val type: VehicleType) : QueueManagementUiEvent
+    data class SectionSelected(val section: QueueSection) : QueueManagementUiEvent
 
     // ===== Permit dialog =====
     /** Foydalanuvchi list item'iga bosdi — permit yuklash boshlanadi. */

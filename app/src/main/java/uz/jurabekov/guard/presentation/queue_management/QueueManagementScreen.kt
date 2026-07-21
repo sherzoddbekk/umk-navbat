@@ -1,18 +1,15 @@
 package uz.jurabekov.guard.presentation.queue_management
 
 import android.widget.Toast
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -28,39 +25,40 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.koin.androidx.compose.koinViewModel
 import uz.jurabekov.guard.domain.model.QueueItem
-import uz.jurabekov.guard.presentation.queue.TabState
-import uz.jurabekov.guard.presentation.queue.components.EmptyState
 import uz.jurabekov.guard.presentation.queue.components.ErrorState
 import uz.jurabekov.guard.presentation.queue.components.LoadingState
-import uz.jurabekov.guard.presentation.queue.components.NowEnteringBanner
 import uz.jurabekov.guard.presentation.queue.components.QueueEmptyState
+import uz.jurabekov.guard.presentation.queue.components.QueueListItem
 import uz.jurabekov.guard.presentation.queue.components.QueueTypeTabs
+import uz.jurabekov.guard.presentation.queue_management.components.ItemStatusBar
 import uz.jurabekov.guard.presentation.queue_management.components.PermitDialog
-import uz.jurabekov.guard.presentation.queue_management.components.QueueManagementItem
 import uz.jurabekov.guard.presentation.queue_management.components.QueueDateBar
+import uz.jurabekov.guard.presentation.queue_management.components.QueueManagementItem
+import uz.jurabekov.guard.presentation.queue_management.components.QueueSectionTabs
+import uz.jurabekov.guard.presentation.queue_management.components.hasStatusBar
 import uz.jurabekov.guard.presentation.scale.components.ScaleDatePickerDialog
+import uz.jurabekov.guard.ui.theme.Accent500
 import uz.jurabekov.guard.ui.theme.Dimens
+import uz.jurabekov.guard.ui.theme.Neutral0
+import uz.jurabekov.guard.ui.theme.Neutral100
+import uz.jurabekov.guard.ui.theme.Neutral300
+import uz.jurabekov.guard.ui.theme.Primary100
 
 /**
- * Navbat boshqaruvi ekrani — Main screen ichidagi nested route.
+ * Navbat boshqaruvi ekrani.
  *
  * **Layout (yuqoridan-pastga):**
- *  1. `QueueDateBar`   — sana picker + Jami counter
- *  2. `QueueTypeTabs`  — OPEN ↔ TENT
- *  3. `PullToRefreshBox` + Unified scroll list:
- *      - entered/skipped tarix (yuqorida, sorted by queueNumber)
- *      - currentlyEntering banner (highlight)
- *      - waiting items (pastda)
- *      Hammasi clickable — itemga bosilsa permit dialog ochiladi.
+ *  1. `QueueDateBar`      — sana picker + Jami counter
+ *  2. `QueueSectionTabs`  — Ruxsatnoma navbati / Darvoza navbati / Berilgan
+ *                           ruxsatnomalar (rolga qarab 2 yoki 3 ta)
+ *  3. `QueueTypeTabs`     — Usti ochiq / Usti yopiq
+ *  4. `PullToRefreshBox`  + tanlangan bo'lim ro'yxati
  *
- * **`QueueScreen`'dan farqi:**
- *  - Top bar va "Navbat olish" tugmasi yo'q (Navbat boshqaruvchi UI)
- *  - History (entered/skipped) toggle yo'q — DOIM ko'rinadi (talab)
- *  - Item bosilganda dialog (QueueScreen'da passive list)
- *
- * **Dialog'lar:**
- *  - `ScaleDatePickerDialog` — qayta ishlatamiz (DRY, identical API).
- *  - `PermitDialog` — yangi, QR + tafsilotlar.
+ * **Bo'limlar** (`QueueSection` — `has_permit`/`manual_passed` bo'yicha):
+ *  - Ruxsatnoma navbati — ruxsatnomasiz kutayotgan mashinalar (oq karta)
+ *  - Darvoza navbati    — ruxsatnoma bor, 1/2/3-yo'lga chaqirish tugmalari
+ *  - Berilgan ruxsatnomalar — barcha berilgan ruxsatnomalar; kirganlar
+ *    "O'tkazilgan" bilan
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,13 +70,11 @@ fun QueueManagementScreen(
 
     val listState = rememberLazyListState()
 
-    // App foreground qaytishida silent refresh (QueueScreen pattern).
     LifecycleResumeEffect(Unit) {
         viewModel.onEvent(QueueManagementUiEvent.AppResumed)
         onPauseOrDispose { /* no-op */ }
     }
 
-    // One-shot effect'lar (toast)
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
             when (effect) {
@@ -88,8 +84,8 @@ fun QueueManagementScreen(
         }
     }
 
-    // Tab almashganda yuqoriga scroll
-    LaunchedEffect(state.selectedTab) {
+    // Bo'lim yoki yo'nalish almashsa — yuqoriga scroll.
+    LaunchedEffect(state.selectedSection, state.selectedTab) {
         listState.animateScrollToItem(0)
     }
 
@@ -117,20 +113,27 @@ fun QueueManagementScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
 
-            // === 1. Date bar + counter ===
             QueueDateBar(
                 isoDate = state.selectedDate,
                 totalPermittedCount = state.totalPermittedCount,
                 onDateClick = { viewModel.onEvent(QueueManagementUiEvent.OpenDatePicker) }
             )
 
-            // === 2. Tabs ===
-            QueueTypeTabs(
-                selected = state.selectedTab,
-                onSelect = { viewModel.onEvent(QueueManagementUiEvent.TabSelected(it)) }
+            QueueSectionTabs(
+                sections = state.availableSections,
+                selected = state.selectedSection,
+                onSelect = { viewModel.onEvent(QueueManagementUiEvent.SectionSelected(it)) }
             )
 
-            // === 3. List ===
+            // Bo'lim tablari ko'k (primary) bo'lgani uchun bu yerda to'q sariq
+            // (Accent) — ikki qatlam bir-biridan aniq ajraladi.
+            QueueTypeTabs(
+                selected = state.selectedTab,
+                onSelect = { viewModel.onEvent(QueueManagementUiEvent.TabSelected(it)) },
+                activeContainerColor = Accent500,
+                activeContentColor = Neutral0
+            )
+
             PullToRefreshBox(
                 isRefreshing = state.isRefreshing,
                 onRefresh = { viewModel.onEvent(QueueManagementUiEvent.Refresh) },
@@ -138,25 +141,24 @@ fun QueueManagementScreen(
                     .weight(1f)
                     .fillMaxWidth()
             ) {
-                val tab = state.activeTab
+                val items = state.visibleItems
 
                 when {
-                    state.isLoading && tab.isFullyEmpty -> LoadingState()
+                    state.isLoading && state.hasNoData -> LoadingState()
 
-                    state.listError != null && tab.isFullyEmpty -> ErrorState(
+                    state.listError != null && state.hasNoData -> ErrorState(
                         message = state.listError ?: "Xatolik",
                         onRetry = { viewModel.onEvent(QueueManagementUiEvent.Refresh) }
                     )
 
-                    tab.isFullyEmpty -> EmptyState()
+                    items.isEmpty() -> QueueEmptyState()
 
-                    tab.isQueueEmpty && tab.enteredItems.isEmpty() -> QueueEmptyState()
-
-                    else -> UnifiedClickableList(
-                        tab = tab,
-                        listState = listState,
+                    else -> SectionList(
+                        section = state.selectedSection,
+                        items = items,
                         canManageInfoLane = state.canManageInfoLane,
                         laneActionInProgressId = state.laneActionInProgressId,
+                        listState = listState,
                         onEvent = viewModel::onEvent
                     )
                 }
@@ -166,24 +168,18 @@ fun QueueManagementScreen(
 }
 
 /**
- * Joriy navbatchidan oldingi (entered/skipped) + banner + keyingi (waiting)
- * mashinalar bir LazyColumn'da. Hammasi clickable.
- *
- * Tartib:
- *  1. enteredItems (sortlangan queueNumber asc) — eng eski yuqorida
- *  2. currentlyEntering banner — highlight
- *  3. waitingItems (sortlangan queueNumber asc) — keyingi mashinalar
- *
- * Item'lar `QueueManagementItem` orqali chiziladi — ruxsatnoma berilgan
- * mashinalarda info-tablo tugmalari (1/2/3 YO'L, O'TKAZILDI) ham chiqadi.
- * Banner (`currentlyEntering`) hali WAITING — unda tugmalar bo'lmaydi.
+ * Tanlangan bo'lim ro'yxati. Item ko'rinishi bo'limga bog'liq:
+ *  - GATE_QUEUE     → `QueueManagementItem` (1/2/3-yo'l tugmalari bilan)
+ *  - GIVEN_PERMITS  → `QueueListItem` + kirganlarga "O'tkazilgan"
+ *  - PERMIT_QUEUE   → oddiy `QueueListItem` (permit dialogga bosiladi)
  */
 @Composable
-private fun UnifiedClickableList(
-    tab: TabState,
-    listState: LazyListState,
+private fun SectionList(
+    section: QueueSection,
+    items: List<QueueItem>,
     canManageInfoLane: Boolean,
     laneActionInProgressId: Long?,
+    listState: LazyListState,
     onEvent: (QueueManagementUiEvent) -> Unit
 ) {
     LazyColumn(
@@ -199,73 +195,44 @@ private fun UnifiedClickableList(
             .fillMaxSize()
             .navigationBarsPadding()
     ) {
-        // === History: entered + skipped ===
-        items(
-            items = tab.enteredItems,
-            key = { "history-${it.uuid}" }
-        ) { item ->
-            ManagementItem(item, canManageInfoLane, laneActionInProgressId, onEvent)
-        }
+        itemsIndexed(
+            items = items,
+            key = { _, item -> "${section.name}-${item.uuid}" }
+        ) { index, item ->
+            when (section) {
+                // Darvoza navbati: tartib raqami 1'dan (backend queue_number emas).
+                // Fon engil kulrang + ingichka chegara — kartalar aniq ajraladi.
+                QueueSection.GATE_QUEUE -> QueueManagementItem(
+                    item = item.copy(queueNumber = index + 1),
+                    canManageInfoLane = canManageInfoLane,
+                    isActionInProgress = laneActionInProgressId == item.id,
+                    containerColor = Neutral100,
+                    borderColor = Neutral300,
+                    onClick = { onEvent(QueueManagementUiEvent.ItemClicked(item)) },
+                    onLaneCall = { lane ->
+                        onEvent(QueueManagementUiEvent.LaneCallClicked(item, lane))
+                    },
+                    onManualPass = { onEvent(QueueManagementUiEvent.ManualPassClicked(item)) }
+                )
 
-        // === Banner: currently entering ===
-        tab.currentlyEntering?.let { item ->
-            item(key = "banner-${item.uuid}") {
-                Spacer(Modifier.height(2.dp))
-                BannerClickable(
+                // Berilgan: o'tkazilgan → kulrang, aks holda (kutmoqda/chaqirilgan)
+                // → ochiq ko'k. Pastda status bari (O'tkazilgan / N-YO'LGA chaqirilgan).
+                QueueSection.GIVEN_PERMITS -> QueueListItem(
                     item = item,
+                    compact = true,
+                    containerColor = if (item.manualPassed) null else Primary100,
+                    onClick = { onEvent(QueueManagementUiEvent.ItemClicked(item)) },
+                    actions = if (item.hasStatusBar()) {
+                        { ItemStatusBar(item) }
+                    } else null
+                )
+
+                QueueSection.PERMIT_QUEUE -> QueueListItem(
+                    item = item,
+                    compact = true,
                     onClick = { onEvent(QueueManagementUiEvent.ItemClicked(item)) }
                 )
-                Spacer(Modifier.height(2.dp))
             }
         }
-
-        // === Waiting items ===
-        items(
-            items = tab.waitingItems,
-            key = { "waiting-${it.uuid}" }
-        ) { item ->
-            ManagementItem(item, canManageInfoLane, laneActionInProgressId, onEvent)
-        }
     }
-}
-
-/** `QueueManagementItem` uchun event binding — ikkala ro'yxatda ham bir xil. */
-@Composable
-private fun ManagementItem(
-    item: QueueItem,
-    canManageInfoLane: Boolean,
-    laneActionInProgressId: Long?,
-    onEvent: (QueueManagementUiEvent) -> Unit
-) {
-    QueueManagementItem(
-        item = item,
-        canManageInfoLane = canManageInfoLane,
-        isActionInProgress = laneActionInProgressId == item.id,
-        onClick = { onEvent(QueueManagementUiEvent.ItemClicked(item)) },
-        onLaneCall = { lane -> onEvent(QueueManagementUiEvent.LaneCallClicked(item, lane)) },
-        onManualPass = { onEvent(QueueManagementUiEvent.ManualPassClicked(item)) }
-    )
-}
-
-/**
- * `NowEnteringBanner`'ni clickable wrapper. Banner komponenti o'zi
- * onClick qabul qilmaydi (QueueScreen passive ishlatadi) — wrapper.
- *
- * Material ripple banner gradient ustida ham yaxshi ko'rinadi (tactile feedback
- * UX uchun foydali). `onClickLabel` accessibility uchun.
- */
-@Composable
-private fun BannerClickable(
-    item: QueueItem,
-    onClick: () -> Unit
-) {
-    NowEnteringBanner(
-        item = item,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(
-                onClickLabel = "Ruxsatnomani ochish",
-                onClick = onClick
-            )
-    )
 }

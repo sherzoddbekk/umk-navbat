@@ -1,5 +1,6 @@
 package uz.jurabekov.guard.presentation.queue_management.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -10,12 +11,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -57,7 +61,9 @@ fun QueueManagementItem(
     onClick: () -> Unit,
     onLaneCall: (Int) -> Unit,
     onManualPass: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    containerColor: Color? = null,
+    borderColor: Color? = null
 ) {
     val showActions = canManageInfoLane && item.hasPermit && !item.manualPassed
 
@@ -65,6 +71,9 @@ fun QueueManagementItem(
         item = item,
         modifier = modifier,
         onClick = onClick,
+        compact = true,
+        containerColor = containerColor,
+        borderColor = borderColor,
         actions = if (!showActions) null else {
             {
                 InfoLaneActions(
@@ -77,6 +86,72 @@ fun QueueManagementItem(
         }
     )
 }
+
+/**
+ * "Berilgan ruxsatnomalar" bo'limidagi item pastidagi status bari.
+ *
+ * Fon itemning butun enini egallaydi (chetdan-chetga). Karta o'z shape'iga
+ * clip qilgani uchun pastki yumaloq burchaklar avtomatik saqlanadi.
+ *
+ *  - `manual_passed`        → yashil "O'tkazilgan"
+ *  - `info_lane` chaqirilgan → to'q sariq "N-YO'LGA chaqirilgan"
+ *  - ruxsatnoma bor, chaqirilmagan → ko'k "Darvozani kutmoqda"
+ *  - aks holda (ruxsatnomasiz) → bar yo'q (`null`)
+ */
+@Composable
+fun ItemStatusBar(item: QueueItem) {
+    val style = when {
+        item.manualPassed ->
+            BarStyle("O'tkazilgan", PASSED_BG, PASSED_FG, Icons.Default.Check)
+        item.infoLane != null ->
+            BarStyle("${item.infoLane}-YO'LGA chaqirilgan", CALLED_BG, CALLED_FG, Icons.Default.Campaign)
+        item.hasPermit ->
+            BarStyle("Darvozani kutmoqda", WAITING_BG, WAITING_FG, Icons.Default.Schedule)
+        else -> return
+    }
+
+    Row(
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(style.bg)
+            .padding(vertical = 5.dp)
+    ) {
+        Icon(
+            imageVector = style.icon,
+            contentDescription = null,
+            tint = style.fg,
+            modifier = Modifier.size(15.dp)
+        )
+        Text(
+            text = style.text,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.2.sp,
+            color = style.fg,
+            maxLines = 1,
+            modifier = Modifier.padding(start = Dimens.SpaceXS)
+        )
+    }
+}
+
+private data class BarStyle(
+    val text: String,
+    val bg: Color,
+    val fg: Color,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector
+)
+
+/** Bu item pastida status bari ko'rsatilishi kerakmi (ruxsatnomali item'lar). */
+fun QueueItem.hasStatusBar(): Boolean = hasPermit
+
+private val PASSED_BG = Color(0xFFBBF7D0)  // green-200 (sal to'qroq)
+private val PASSED_FG = Color(0xFF166534)  // green-800
+private val CALLED_BG = Color(0xFFFFEAD5)  // orange-100
+private val CALLED_FG = Color(0xFFC2410C)  // orange-700
+private val WAITING_BG = Color(0xFFC7DEF5) // blue-200 (darvozani kutmoqda)
+private val WAITING_FG = Color(0xFF15407A) // Primary700
 
 /**
  * Action qatori. Balandlik ikkala holatda bir xil — chaqiruvdan keyin
@@ -92,6 +167,9 @@ private fun InfoLaneActions(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            // Tugmalar karta chetiga tegmasin — o'z insetini o'zi beradi
+            // (CardActions endi padding qo'shmaydi).
+            .padding(start = Dimens.SpaceS, end = Dimens.SpaceS, bottom = Dimens.SpaceS)
             .height(ACTION_HEIGHT),
         horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceS)
     ) {
