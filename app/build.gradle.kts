@@ -33,8 +33,8 @@ android {
         // ⬆️ MUHIM: Play'ga qayta yuklash uchun versionCode oshirilishi SHART.
         // versionName foydalanuvchiga ko'rinadi (Play sahifa, About).
         // v1.3.0 — navbatni bekor qilish + "Yangilik!" e'loni.
-        versionCode = 8
-        versionName = "1.3.1"
+        versionCode = 9
+        versionName = "1.3.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
