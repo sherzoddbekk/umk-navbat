@@ -36,6 +36,7 @@ class FakeQueueRepository(
     /** Testda xato stsenariylarini modellash uchun almashtiriladi. */
     var callLaneResult: ApiResult<String> = ApiResult.Success("Mashina yo'lga chaqirildi")
     var manualEntryResult: ApiResult<String> = ApiResult.Success("Mashina o'tkazildi")
+    var releaseResult: ApiResult<String> = ApiResult.Success("Chaqiruv bekor qilindi")
 
     /** `> 0` bo'lsa so'rov "sekin" bo'ladi — single-flight testi uchun. */
     var actionDelayMs: Long = 0
@@ -43,6 +44,7 @@ class FakeQueueRepository(
     /** Chaqiruv tarixi — API haqiqatan chaqirilganini tekshirish uchun. */
     val laneCalls = mutableListOf<Pair<Long, Int>>()
     val manualEntries = mutableListOf<Long>()
+    val releases = mutableListOf<Long>()
 
     private val updates = MutableSharedFlow<QueueUpdate>()
     private val _wsState = MutableStateFlow(ConnectionState.CONNECTED)
@@ -72,6 +74,15 @@ class FakeQueueRepository(
             items = items.map { if (it.id == queueId) it.copy(manualPassed = true) else it }
         }
         return manualEntryResult
+    }
+
+    override suspend fun releaseInfoLane(queueId: Long): ApiResult<String> {
+        if (actionDelayMs > 0) delay(actionDelayMs)
+        releases += queueId
+        if (releaseResult is ApiResult.Success) {
+            items = items.map { if (it.id == queueId) it.copy(infoLane = null) else it }
+        }
+        return releaseResult
     }
 
     override fun observeUpdates(): Flow<QueueUpdate> = updates

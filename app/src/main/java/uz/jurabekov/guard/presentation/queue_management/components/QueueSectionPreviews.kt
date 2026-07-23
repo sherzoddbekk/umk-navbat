@@ -112,7 +112,7 @@ private fun SectionItemsPreview() {
                     isActionInProgress = false,
                     containerColor = Neutral100,
                     borderColor = Neutral300,
-                    onClick = {}, onLaneCall = {}, onManualPass = {}
+                    onClick = {}, onLaneCall = {}, onManualPass = {}, onLaneRelease = {}
                 )
 
                 Label("Berilgan ruxsatnomalar — O'tkazilgan")

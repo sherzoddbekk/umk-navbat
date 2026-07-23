@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -22,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,6 +33,8 @@ import uz.jurabekov.guard.presentation.queue.components.QueueListItem
 import uz.jurabekov.guard.ui.theme.Accent100
 import uz.jurabekov.guard.ui.theme.Accent600
 import uz.jurabekov.guard.ui.theme.Dimens
+import uz.jurabekov.guard.ui.theme.Error100
+import uz.jurabekov.guard.ui.theme.Error500
 import uz.jurabekov.guard.ui.theme.Neutral0
 import uz.jurabekov.guard.ui.theme.Primary100
 import uz.jurabekov.guard.ui.theme.Primary700
@@ -46,7 +50,7 @@ import uz.jurabekov.guard.ui.theme.Success500
  * |-----------------------------------------|------------------------------|
  * | `manualPassed = true`                   | — (hech qanday tugma yo'q)   |
  * | `infoLane = null`                        | 1 YO'L / 2 YO'L / 3 YO'L     |
- * | `infoLane = 1..3`                        | "N YO'L" badge + O'TKAZILDI  |
+ * | `infoLane = 1..3`                        | "N YO'L" + O'TKAZISH + BEKOR |
  *
  * Qo'shimcha shartlar: tugmalar faqat ruxsatnoma berilgan (`hasPermit`)
  * mashinalarda va faqat `admin` / `darvoza_tekshiruv` rollarida chiqadi.
@@ -61,6 +65,7 @@ fun QueueManagementItem(
     onClick: () -> Unit,
     onLaneCall: (Int) -> Unit,
     onManualPass: () -> Unit,
+    onLaneRelease: () -> Unit,
     modifier: Modifier = Modifier,
     containerColor: Color? = null,
     borderColor: Color? = null
@@ -80,7 +85,8 @@ fun QueueManagementItem(
                     assignedLane = item.infoLane,
                     enabled = !isActionInProgress,
                     onLaneCall = onLaneCall,
-                    onManualPass = onManualPass
+                    onManualPass = onManualPass,
+                    onLaneRelease = onLaneRelease
                 )
             }
         }
@@ -162,7 +168,8 @@ private fun InfoLaneActions(
     assignedLane: Int?,
     enabled: Boolean,
     onLaneCall: (Int) -> Unit,
-    onManualPass: () -> Unit
+    onManualPass: () -> Unit,
+    onLaneRelease: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -171,7 +178,7 @@ private fun InfoLaneActions(
             // (CardActions endi padding qo'shmaydi).
             .padding(start = Dimens.SpaceS, end = Dimens.SpaceS, bottom = Dimens.SpaceS)
             .height(ACTION_HEIGHT),
-        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceS)
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         if (assignedLane == null) {
             // Uchala yo'l bir xil vaznda — birortasi ustunlik qilmaydi.
@@ -185,23 +192,34 @@ private fun InfoLaneActions(
                 )
             }
         } else {
-            // Chaqirilgan yo'l — bosilmaydigan holat indikatori (disabled tugma
-            // rangi o'zgarmaydi: `disabledContainerColor` explicit berilgan).
+            // Chaqirilgan yo'l — bosilmaydigan holat indikatori.
             ActionButton(
                 text = "$assignedLane YO'L",
                 container = Accent100,
                 content = Accent600,
                 enabled = false,
+                weight = 0.9f,
                 onClick = {}
             )
+            // O'tkazish — asosiy tasdiqlash (yashil).
             ActionButton(
-                text = "O'TKAZILDI",
+                text = "O'TKAZISH",
                 container = Success500,
                 content = Neutral0,
                 enabled = enabled,
-                withCheckIcon = true,
-                weight = 2f,
+                icon = Icons.Default.Check,
+                weight = 1.35f,
                 onClick = onManualPass
+            )
+            // Bekor qilish — chaqiruvni ortga qaytarish (yumshoq qizil).
+            ActionButton(
+                text = "BEKOR",
+                container = Error100,
+                content = Error500,
+                enabled = enabled,
+                icon = Icons.Default.Close,
+                weight = 1.05f,
+                onClick = onLaneRelease
             )
         }
     }
@@ -214,7 +232,7 @@ private fun RowScope.ActionButton(
     content: Color,
     enabled: Boolean,
     onClick: () -> Unit,
-    withCheckIcon: Boolean = false,
+    icon: ImageVector? = null,
     weight: Float = 1f
 ) {
     Button(
@@ -235,20 +253,20 @@ private fun RowScope.ActionButton(
             .weight(weight)
             .height(ACTION_HEIGHT)
     ) {
-        if (withCheckIcon) {
+        if (icon != null) {
             Icon(
-                imageVector = Icons.Default.Check,
+                imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier.size(15.dp)
             )
         }
         Text(
             text = text,
             fontSize = ACTION_FONT_SIZE,
             fontWeight = FontWeight.Bold,
-            letterSpacing = 0.4.sp,
+            letterSpacing = 0.3.sp,
             maxLines = 1,
-            modifier = Modifier.padding(start = if (withCheckIcon) Dimens.SpaceXS else 0.dp)
+            modifier = Modifier.padding(start = if (icon != null) 3.dp else 0.dp)
         )
     }
 }

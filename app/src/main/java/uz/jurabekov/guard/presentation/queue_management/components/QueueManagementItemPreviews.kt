@@ -75,7 +75,8 @@ private fun PreviewCase(
             isActionInProgress = isActionInProgress,
             onClick = {},
             onLaneCall = {},
-            onManualPass = {}
+            onManualPass = {},
+            onLaneRelease = {}
         )
     }
 }
@@ -99,7 +100,7 @@ private fun QueueManagementItemStatesPreview() {
                 )
 
                 PreviewCase(
-                    title = "2. 1-yo'lga chaqirilgan → badge + O'TKAZILDI",
+                    title = "2. 1-yo'lga chaqirilgan → badge + O'TKAZISH + BEKOR",
                     item = previewItem(queueNumber = 4, infoLane = 1)
                 )
 
@@ -146,7 +147,8 @@ private fun QueueManagementItemWaitingPreview() {
                     isActionInProgress = false,
                     onClick = {},
                     onLaneCall = {},
-                    onManualPass = {}
+                    onManualPass = {},
+                    onLaneRelease = {}
                 )
             }
         }

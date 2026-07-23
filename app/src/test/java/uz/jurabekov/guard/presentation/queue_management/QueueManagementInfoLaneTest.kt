@@ -12,6 +12,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -24,6 +25,7 @@ import uz.jurabekov.guard.domain.usecase.CallInfoLaneUseCase
 import uz.jurabekov.guard.domain.usecase.GetPermitsUseCase
 import uz.jurabekov.guard.domain.usecase.GetQueueByDateUseCase
 import uz.jurabekov.guard.domain.usecase.MarkManualEntryUseCase
+import uz.jurabekov.guard.domain.usecase.ReleaseInfoLaneUseCase
 
 /**
  * Info-tablo (1/2/3-yo'lga chaqirish + "O'tkazildi") mantiqining testlari.
@@ -114,6 +116,25 @@ class QueueManagementInfoLaneTest {
     }
 
     /* ============================================================
+     * Chaqiruvni bekor qilish (release)
+     * ============================================================ */
+
+    @Test
+    fun `bekor qilish - infoLane bo'shaydi, item qoladi`() = runTest(dispatcher) {
+        val repo = FakeQueueRepository(listOf(permittedItem(infoLane = 3)))
+        val vm = createViewModel(repo)
+        advanceUntilIdle()
+
+        vm.onEvent(QueueManagementUiEvent.LaneReleaseClicked(permittedItem(infoLane = 3)))
+        advanceUntilIdle()
+
+        assertEquals(listOf(QUEUE_ID), repo.releases)
+        val item = vm.itemInState()
+        assertNull("Yo'l chaqiruvi bekor bo'lishi kerak", item.infoLane)
+        assertFalse("Mashina o'tkazilmagan — ro'yxatda qoladi", item.manualPassed)
+    }
+
+    /* ============================================================
      * Rol bo'yicha bo'lim ko'rinishi
      * ============================================================ */
 
@@ -173,6 +194,7 @@ class QueueManagementInfoLaneTest {
         getPermits = GetPermitsUseCase(repo),
         callInfoLane = CallInfoLaneUseCase(repo),
         markManualEntry = MarkManualEntryUseCase(repo),
+        releaseInfoLane = ReleaseInfoLaneUseCase(repo),
         repository = repo,
         authRepository = FakeAuthRepository(testUser(role))
     )

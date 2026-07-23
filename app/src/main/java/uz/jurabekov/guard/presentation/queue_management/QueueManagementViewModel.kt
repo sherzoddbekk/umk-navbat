@@ -26,6 +26,7 @@ import uz.jurabekov.guard.domain.usecase.CallInfoLaneUseCase
 import uz.jurabekov.guard.domain.usecase.GetPermitsUseCase
 import uz.jurabekov.guard.domain.usecase.GetQueueByDateUseCase
 import uz.jurabekov.guard.domain.usecase.MarkManualEntryUseCase
+import uz.jurabekov.guard.domain.usecase.ReleaseInfoLaneUseCase
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -50,6 +51,7 @@ class QueueManagementViewModel(
     private val getPermits: GetPermitsUseCase,
     private val callInfoLane: CallInfoLaneUseCase,
     private val markManualEntry: MarkManualEntryUseCase,
+    private val releaseInfoLane: ReleaseInfoLaneUseCase,
     private val repository: QueueRepository,
     private val authRepository: AuthRepository
 ) : ViewModel() {
@@ -110,6 +112,12 @@ class QueueManagementViewModel(
             is QueueManagementUiEvent.ManualPassClicked -> runLaneAction(event.item.id) {
                 markManualEntry(event.item.id) to { item: QueueItem ->
                     item.copy(manualPassed = true)
+                }
+            }
+
+            is QueueManagementUiEvent.LaneReleaseClicked -> runLaneAction(event.item.id) {
+                releaseInfoLane(event.item.id) to { item: QueueItem ->
+                    item.copy(infoLane = null)
                 }
             }
         }

@@ -70,4 +70,16 @@ interface QueueApi {
     suspend fun markManualEntry(
         @Path("id") queueId: Long
     ): InfoLaneActionResponseDto
+
+    /**
+     * Yo'l chaqiruvini bekor qilish — `info_lane` bo'shaydi, mashina 1/2/3-yo'l
+     * tanlash holatiga qaytadi. Body talab qilinmaydi (bo'sh POST).
+     *
+     * Idempotent (allaqachon bo'sh bo'lsa ham 200). 422 — mashina allaqachon
+     * qo'lda o'tkazilgan bo'lsa (xabar foydalanuvchiga ko'rsatiladi).
+     */
+    @POST("api/v2/queue/{id}/info-lane/release")
+    suspend fun releaseInfoLane(
+        @Path("id") queueId: Long
+    ): InfoLaneActionResponseDto
 }

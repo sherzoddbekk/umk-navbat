@@ -212,7 +212,8 @@ private fun SectionList(
                     onLaneCall = { lane ->
                         onEvent(QueueManagementUiEvent.LaneCallClicked(item, lane))
                     },
-                    onManualPass = { onEvent(QueueManagementUiEvent.ManualPassClicked(item)) }
+                    onManualPass = { onEvent(QueueManagementUiEvent.ManualPassClicked(item)) },
+                    onLaneRelease = { onEvent(QueueManagementUiEvent.LaneReleaseClicked(item)) }
                 )
 
                 // Berilgan: o'tkazilgan → kulrang, aks holda (kutmoqda/chaqirilgan)

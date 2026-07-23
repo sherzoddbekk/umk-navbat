@@ -23,6 +23,7 @@ import uz.jurabekov.guard.domain.usecase.GetQueueListUseCase
 import uz.jurabekov.guard.domain.usecase.GetScaleListUseCase
 import uz.jurabekov.guard.domain.usecase.LoginUseCase
 import uz.jurabekov.guard.domain.usecase.MarkManualEntryUseCase
+import uz.jurabekov.guard.domain.usecase.ReleaseInfoLaneUseCase
 import uz.jurabekov.guard.domain.usecase.ObserveQueueUpdatesUseCase
 import uz.jurabekov.guard.domain.usecase.SubmitQueueUseCase
 import uz.jurabekov.guard.presentation.auth.LoginViewModel
@@ -75,6 +76,7 @@ val appModule = module {
     factory { GetPermitsUseCase(repository = get()) }
     factory { CallInfoLaneUseCase(repository = get()) }
     factory { MarkManualEntryUseCase(repository = get()) }
+    factory { ReleaseInfoLaneUseCase(repository = get()) }
 
     // ===== ViewModels =====
     viewModelOf(::QueueViewModel)

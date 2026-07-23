@@ -51,6 +51,9 @@ interface QueueRepository {
     /** Mashina qo'lda o'tkazildi — tablodan ketadi, yo'l bo'shaydi. */
     suspend fun markManualEntry(queueId: Long): ApiResult<String>
 
+    /** Yo'l chaqiruvini bekor qiladi — `info_lane` bo'shaydi (mashina qoladi). */
+    suspend fun releaseInfoLane(queueId: Long): ApiResult<String>
+
     /** Pusher connection holati. */
     val wsConnectionState: StateFlow<ConnectionState>
 

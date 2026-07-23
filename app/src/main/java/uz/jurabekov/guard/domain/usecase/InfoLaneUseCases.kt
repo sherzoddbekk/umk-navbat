@@ -30,3 +30,11 @@ class MarkManualEntryUseCase(
     suspend operator fun invoke(queueId: Long): ApiResult<String> =
         repository.markManualEntry(queueId)
 }
+
+/** Yo'l chaqiruvini bekor qiladi — mashina 1/2/3-yo'l tanlash holatiga qaytadi. */
+class ReleaseInfoLaneUseCase(
+    private val repository: QueueRepository
+) {
+    suspend operator fun invoke(queueId: Long): ApiResult<String> =
+        repository.releaseInfoLane(queueId)
+}

@@ -76,6 +76,10 @@ class QueueRepositoryImpl(
         api.markManualEntry(queueId).requireMessage()
     }
 
+    override suspend fun releaseInfoLane(queueId: Long): ApiResult<String> = safeCall {
+        api.releaseInfoLane(queueId).requireMessage()
+    }
+
     /**
      * HTTP 200 + `success=false` — backend biznes-xatoligi (masalan, yo'l band).
      * `safeCall` uni `ApiResult.Error`ga aylantiradi, UI toast ko'rsatadi.

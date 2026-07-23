@@ -28,6 +28,9 @@ sealed interface QueueManagementUiEvent {
     /** "N YO'L" tugmasi — mashinani tabloda shu yo'lga chaqirish. */
     data class LaneCallClicked(val item: QueueItem, val lane: Int) : QueueManagementUiEvent
 
-    /** "O'TKAZILDI" tugmasi — mashina qo'lda o'tkazildi, yo'l bo'shaydi. */
+    /** "O'TKAZISH" tugmasi — mashina qo'lda o'tkazildi, yo'l bo'shaydi. */
     data class ManualPassClicked(val item: QueueItem) : QueueManagementUiEvent
+
+    /** "BEKOR QILISH" tugmasi — yo'l chaqiruvi bekor, 1/2/3-yo'l holatiga qaytadi. */
+    data class LaneReleaseClicked(val item: QueueItem) : QueueManagementUiEvent
 }
